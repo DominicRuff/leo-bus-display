@@ -1,0 +1,56 @@
+name: Build Leo Bus Display APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "main" ]
+    paths-ignore:
+      - "README.md"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: leo-bus-display-latest-release
+  cancel-in-progress: false
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.10.2"
+
+      - name: Build debug APK
+        run: gradle --no-daemon :app:assembleDebug
+
+      - name: Prepare downloadable APK
+        run: |
+          mkdir -p dist
+          cp app/build/outputs/apk/debug/app-debug.apk                  dist/leo-bus-display-moto-g54.apk
+          sha256sum dist/leo-bus-display-moto-g54.apk                 > dist/leo-bus-display-moto-g54.apk.sha256
+
+      - name: Upload CI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: leo-bus-display-moto-g54
+          path: dist/*
+
+      - name: Publish stable GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete leo-bus-display-latest --cleanup-tag --yes || true
+          gh release create leo-bus-display-latest                 dist/leo-bus-display-moto-g54.apk                 dist/leo-bus-display-moto-g54.apk.sha256                 --title "Leo Bus Display - latest prototype"                 --notes "Motorola G54 test build. Fixed bus 4513; 44x11 BLE destination display."

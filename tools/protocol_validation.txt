@@ -1,0 +1,1 @@
+All 11 destination packets validate to 144 bytes = 9 BLE chunks of 16 bytes.
