@@ -1,10 +1,12 @@
 package com.leosprojects.busdisplay;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
@@ -13,13 +15,15 @@ import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.ScrollView;
+import android.widget.SeekBar;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.AdapterView;
 
 import java.util.List;
 
-public final class MainActivity extends Activity implements BadgeBleClient.Listener {
+public final class MainActivity extends Activity implements BadgeBleClient.Listener,
+        BusAudioController.Listener {
     private static final int BLE_PERMISSION_REQUEST = 4513;
 
     private final int amber = Color.rgb(255, 145, 20);
@@ -33,12 +37,18 @@ public final class MainActivity extends Activity implements BadgeBleClient.Liste
     private ProgressBar progressBar;
     private Button sendButton;
     private BadgeBleClient bleClient;
+    private BusAudioController audioController;
+    private TextView speakerStatusText;
+    private TextView speedText;
+    private TextView audioStatusText;
+    private Button engineButton;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         bleClient = new BadgeBleClient(this, this);
         setContentView(buildUi());
+        audioController = new BusAudioController(this, this);
 
         List<String> names = DestinationLibrary.names();
         if (!names.isEmpty()) {
@@ -138,6 +148,8 @@ public final class MainActivity extends Activity implements BadgeBleClient.Liste
         progressLp.topMargin = dp(14);
         root.addView(progressBar, progressLp);
 
+        addSoundUi(root);
+
         statusText = text("Ready.", 14, textSecondary, false);
         statusText.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams statusLp = matchWrap();
@@ -155,7 +167,7 @@ public final class MainActivity extends Activity implements BadgeBleClient.Liste
         root.addView(help, helpLp);
 
         TextView credit = text(
-                "Prototype 0.1 • BLE FEE0/FEE1 • Based on the open Badge Magic protocol",
+                "Prototype 0.2 • BLE display + independent Bluetooth media audio",
                 11, Color.rgb(120, 120, 120), false);
         credit.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams creditLp = matchWrap();
@@ -163,6 +175,139 @@ public final class MainActivity extends Activity implements BadgeBleClient.Liste
         root.addView(credit, creditLp);
 
         return scroll;
+    }
+
+    private void addSoundUi(LinearLayout root) {
+        View divider = new View(this);
+        divider.setBackgroundColor(Color.rgb(65, 65, 65));
+        LinearLayout.LayoutParams dividerLp =
+                new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(1));
+        dividerLp.topMargin = dp(28);
+        dividerLp.bottomMargin = dp(22);
+        root.addView(divider, dividerLp);
+
+        TextView soundTitle = text("BUS SOUND", 22, amber, true);
+        soundTitle.setGravity(Gravity.CENTER);
+        root.addView(soundTitle, matchWrap());
+
+        TextView speakerLabel = text("Bluetooth Speaker", 14, textPrimary, true);
+        LinearLayout.LayoutParams speakerLabelLp = matchWrap();
+        speakerLabelLp.topMargin = dp(18);
+        root.addView(speakerLabel, speakerLabelLp);
+
+        speakerStatusText = text("Checking Bluetooth media output…", 14, textSecondary, false);
+        root.addView(speakerStatusText, matchWrap());
+
+        Button chooseSpeaker = soundButton("CHOOSE BUS SPEAKER");
+        chooseSpeaker.setOnClickListener(v ->
+                startActivity(new Intent(Settings.ACTION_BLUETOOTH_SETTINGS)));
+        LinearLayout.LayoutParams chooseLp = matchWrapHeight(54);
+        chooseLp.topMargin = dp(10);
+        root.addView(chooseSpeaker, chooseLp);
+
+        Button refreshSpeaker = soundButton("REFRESH SPEAKER");
+        refreshSpeaker.setOnClickListener(v -> {
+            if (audioController != null) audioController.refreshSpeakerStatus();
+        });
+        LinearLayout.LayoutParams refreshLp = matchWrapHeight(50);
+        refreshLp.topMargin = dp(8);
+        root.addView(refreshSpeaker, refreshLp);
+
+        TextView packLabel = text("Sound Pack", 14, textSecondary, true);
+        LinearLayout.LayoutParams packLabelLp = matchWrap();
+        packLabelLp.topMargin = dp(18);
+        root.addView(packLabel, packLabelLp);
+
+        Spinner soundPackSpinner = new Spinner(this);
+        ArrayAdapter<BusSoundPack> packAdapter = new ArrayAdapter<>(
+                this, android.R.layout.simple_spinner_item, BusSoundPack.packs());
+        packAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        soundPackSpinner.setAdapter(packAdapter);
+        soundPackSpinner.setPopupBackgroundDrawable(
+                new android.graphics.drawable.ColorDrawable(Color.WHITE));
+        soundPackSpinner.setBackgroundTintList(ColorStateList.valueOf(amber));
+        soundPackSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                if (audioController != null) {
+                    audioController.setSoundPack((BusSoundPack) parent.getItemAtPosition(position));
+                }
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {}
+        });
+        LinearLayout.LayoutParams packLp = matchWrapHeight(56);
+        packLp.topMargin = dp(4);
+        root.addView(soundPackSpinner, packLp);
+
+        TextView speedLabel = text("SIMULATED SPEED", 14, textSecondary, true);
+        speedLabel.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams speedLabelLp = matchWrap();
+        speedLabelLp.topMargin = dp(20);
+        root.addView(speedLabel, speedLabelLp);
+
+        speedText = text("00 km/h", 28, amber, true);
+        speedText.setGravity(Gravity.CENTER);
+        root.addView(speedText, matchWrap());
+
+        SeekBar speed = seekBar(80, 0);
+        speed.setOnSeekBarChangeListener(seekListener(value -> {
+            speedText.setText(String.format(java.util.Locale.US, "%02d km/h", value));
+            if (audioController != null) audioController.setSpeedKmh(value);
+        }));
+        root.addView(speed, matchWrapHeight(52));
+
+        engineButton = soundButton("ENGINE ON");
+        engineButton.setTextSize(17);
+        engineButton.setOnClickListener(v -> {
+            if (audioController != null) {
+                audioController.setEngineEnabled(!audioController.isEngineEnabled());
+            }
+        });
+        LinearLayout.LayoutParams engineLp = matchWrapHeight(60);
+        engineLp.topMargin = dp(8);
+        root.addView(engineButton, engineLp);
+
+        audioStatusText = text("Engine stopped.", 13, textSecondary, false);
+        audioStatusText.setGravity(Gravity.CENTER);
+        root.addView(audioStatusText, matchWrap());
+
+        TextView engineVolumeLabel = text("Engine volume", 14, textSecondary, true);
+        LinearLayout.LayoutParams engineVolumeLp = matchWrap();
+        engineVolumeLp.topMargin = dp(18);
+        root.addView(engineVolumeLabel, engineVolumeLp);
+        SeekBar engineVolume = seekBar(100, 75);
+        engineVolume.setOnSeekBarChangeListener(seekListener(value -> {
+            if (audioController != null) audioController.setEngineVolume(value);
+        }));
+        root.addView(engineVolume, matchWrapHeight(46));
+
+        TextView effectsVolumeLabel = text("Effects volume", 14, textSecondary, true);
+        root.addView(effectsVolumeLabel, matchWrap());
+        SeekBar effectsVolume = seekBar(100, 85);
+        effectsVolume.setOnSeekBarChangeListener(seekListener(value -> {
+            if (audioController != null) audioController.setEffectsVolume(value);
+        }));
+        root.addView(effectsVolume, matchWrapHeight(46));
+
+        Button horn = soundButton("TOOT!");
+        horn.setTextSize(22);
+        horn.setOnClickListener(v -> {
+            if (audioController != null) audioController.playHorn();
+        });
+        LinearLayout.LayoutParams hornLp = matchWrapHeight(72);
+        hornLp.topMargin = dp(10);
+        root.addView(horn, hornLp);
+
+        Button gear = soundButton("TEST GEAR CHANGE");
+        gear.setOnClickListener(v -> {
+            if (audioController != null) audioController.playGearChange();
+        });
+        LinearLayout.LayoutParams gearLp = matchWrapHeight(52);
+        gearLp.topMargin = dp(8);
+        gearLp.bottomMargin = dp(18);
+        root.addView(gear, gearLp);
     }
 
     private void sendSelected() {
@@ -208,6 +353,19 @@ public final class MainActivity extends Activity implements BadgeBleClient.Liste
     }
 
     @Override
+    public void onSpeakerStatusChanged(String status) {
+        runOnUiThread(() -> speakerStatusText.setText(status));
+    }
+
+    @Override
+    public void onEngineStateChanged(boolean enabled, String status) {
+        runOnUiThread(() -> {
+            engineButton.setText(enabled ? "ENGINE OFF" : "ENGINE ON");
+            if (status != null && !status.isEmpty()) audioStatusText.setText(status);
+        });
+    }
+
+    @Override
     public void onRequestPermissionsResult(int requestCode,
                                            String[] permissions,
                                            int[] grantResults) {
@@ -226,7 +384,20 @@ public final class MainActivity extends Activity implements BadgeBleClient.Liste
     @Override
     protected void onDestroy() {
         if (bleClient != null) bleClient.cancel();
+        if (audioController != null) audioController.release();
         super.onDestroy();
+    }
+
+    @Override
+    protected void onStop() {
+        if (audioController != null) audioController.setEngineEnabled(false);
+        super.onStop();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (audioController != null) audioController.refreshSpeakerStatus();
     }
 
     private TextView text(String value, int sp, int color, boolean bold) {
@@ -243,6 +414,45 @@ public final class MainActivity extends Activity implements BadgeBleClient.Liste
         return new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT);
+    }
+
+    private LinearLayout.LayoutParams matchWrapHeight(int heightDp) {
+        return new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(heightDp));
+    }
+
+    private Button soundButton(String label) {
+        Button button = new Button(this);
+        button.setText(label);
+        button.setAllCaps(true);
+        button.setTextColor(Color.BLACK);
+        button.setBackgroundTintList(ColorStateList.valueOf(amber));
+        return button;
+    }
+
+    private SeekBar seekBar(int max, int progress) {
+        SeekBar seekBar = new SeekBar(this);
+        seekBar.setMax(max);
+        seekBar.setProgress(progress);
+        seekBar.setProgressTintList(ColorStateList.valueOf(amber));
+        seekBar.setThumbTintList(ColorStateList.valueOf(amber));
+        return seekBar;
+    }
+
+    private SeekBar.OnSeekBarChangeListener seekListener(
+            java.util.function.IntConsumer onChanged) {
+        return new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                onChanged.accept(progress);
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {}
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {}
+        };
     }
 
     private int dp(int value) {

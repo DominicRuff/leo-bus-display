@@ -3,7 +3,7 @@
 Android prototype for the Motorola Moto G54 and compatible Android phones,
 controlling an 11×44 Funduino / LeSun B1144-style Bluetooth LED badge.
 
-## Prototype 0.1
+## Prototype 0.2
 
 - Fixed vehicle number: **4513**
 - 44×11 exact bitmap output
@@ -11,7 +11,10 @@ controlling an 11×44 Funduino / LeSun B1144-style Bluetooth LED badge.
 - Static/fixed display — no scrolling
 - Bluetooth LE service `FEE0`, write characteristic `FEE1`
 - No external Android runtime libraries
-- Android minSdk 23, target/compile SDK 35
+- Android minSdk 31, target/compile SDK 35
+- Independent Bluetooth media audio for a paired speaker
+- Synthetic Prototype Diesel Test engine, gear-change, and horn sounds
+- Manual 0–80 km/h development speed simulator
 - Destination presets:
   - Traversella
   - Fondo
@@ -27,6 +30,21 @@ controlling an 11×44 Funduino / LeSun B1144-style Bluetooth LED badge.
 
 The destination payloads are pre-rendered exact 44×11 matrices. This means
 long names do not rely on the badge's stock font and do not need to scroll.
+
+## Bus audio prototype
+
+The Bluetooth LED badge and Bluetooth speaker are independent. The display
+continues to work without a speaker, and the audio controls continue to work
+without the FEE0/FEE1 badge.
+
+Pair and select the bus speaker through Android's normal Bluetooth settings.
+The app detects Bluetooth media outputs but does not force pairing or an A2DP
+connection.
+
+`Prototype Diesel Test` contains original synthetic placeholder sounds that
+exercise the media-audio pipeline. The speed slider is a manual development
+simulator; GPS-driven speed and automatic gearbox behavior are planned for
+future audio patches.
 
 ## Build
 
