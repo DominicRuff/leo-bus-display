@@ -29,6 +29,7 @@ public final class BusAudioController {
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final SoundPool soundPool;
     private final AudioFocusRequest focusRequest;
+    private final Runnable startEngineLoop;
     private final Map<Integer, Integer> soundIdsByResource = new HashMap<>();
     private final Map<Integer, Boolean> loadedSoundIds = new HashMap<>();
 
@@ -58,6 +59,7 @@ public final class BusAudioController {
                 .setMaxStreams(4)
                 .setAudioAttributes(attributes)
                 .build();
+        startEngineLoop = this::startEngineLoopNow;
         soundPool.setOnLoadCompleteListener((pool, sampleId, status) -> {
             loadedSoundIds.put(sampleId, status == 0);
             if (status != 0) {
@@ -186,7 +188,7 @@ public final class BusAudioController {
         handler.postDelayed(startEngineLoop, soundPack.engineStartDurationMs());
     }
 
-    private final Runnable startEngineLoop = () -> {
+    private void startEngineLoopNow() {
         engineStartStream = 0;
         if (released || !engineRequested || soundPack == null || engineLoopStream != 0) return;
         int soundId = soundIdsByResource.get(soundPack.engineLoopResource());
@@ -198,7 +200,7 @@ public final class BusAudioController {
         } else {
             startRateSmoother();
         }
-    };
+    }
 
     private void stopEngineStreams() {
         handler.removeCallbacks(startEngineLoop);
