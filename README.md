@@ -3,7 +3,7 @@
 Android prototype for the Motorola Moto G54 and compatible Android phones,
 controlling an 11×44 Funduino / LeSun B1144-style Bluetooth LED badge.
 
-## Prototype 0.4
+## Prototype 0.5
 
 - Fixed vehicle number: **4513**
 - 44×11 exact bitmap output
@@ -18,6 +18,7 @@ controlling an 11×44 Funduino / LeSun B1144-style Bluetooth LED badge.
 - GTT Classic Bus layered idle and five-gear sound pack
 - Selectable six-gear GTT Classic Even More Real pack with anti-surge loops
 - Real door-open and door-close QA effects in the Even More Real pack
+- Optional foreground-only GPS road-speed following using Android's GPS provider
 - 250 ms crossfaded manual gear transitions with shift effects
 - Destination presets:
   - Traversella
@@ -64,6 +65,20 @@ unavailable; the 5→6 engine transition still crossfades normally.
 Sound packs are loaded from JSON profiles under `app/src/main/assets/sounds`.
 See `docs/bus-sound-profiles.md` for the profile schema and instructions for
 adding another bus without changing the playback engine.
+
+## GPS road-speed mode
+
+Manual Simulator remains the default speed source and requires no location
+permission. Selecting GPS Road Speed explicitly requests precise foreground
+location, disables the manual slider, and feeds filtered GPS speed into the
+existing profile-specific gearbox. It does not start the engine automatically.
+
+GPS fixes older than three seconds or less accurate than 50 metres are ignored.
+The displayed GPS speed is not capped, while the audio simulator receives at
+most 80 km/h. GPS updates stop whenever the Activity is no longer visible; no
+background location permission, service, network positioning, or Google Play
+Services dependency is used. The GPS SETTINGS button opens Android's normal
+Location settings.
 
 ## Build
 

@@ -53,4 +53,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release delete leo-bus-display-latest --cleanup-tag --yes || true
-          gh release create leo-bus-display-latest                 dist/leo-bus-display-moto-g54.apk                 dist/leo-bus-display-moto-g54.apk.sha256                 --title "Leo Bus Display - latest prototype"                 --notes "Motorola G54 prototype. Fixed bus 4513; 44x11 BLE destination display; selectable sound profiles including six-gear GTT Classic Even More Real audio with anti-surge loops and real door effects."
+          gh release create leo-bus-display-latest                 dist/leo-bus-display-moto-g54.apk                 dist/leo-bus-display-moto-g54.apk.sha256                 --title "Leo Bus Display - latest prototype"                 --notes "Motorola G54 prototype. Fixed bus 4513; 44x11 BLE destination display; selectable bus sound profiles with six-gear GTT audio, real door effects and foreground GPS road-speed following."

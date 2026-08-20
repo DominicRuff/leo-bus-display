@@ -1,7 +1,9 @@
 package com.leosprojects.busdisplay;
 
+import android.Manifest;
 import android.app.Activity;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
@@ -26,8 +28,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 public final class MainActivity extends Activity implements BadgeBleClient.Listener,
-        BusAudioController.Listener {
+        BusAudioController.Listener, GpsSpeedController.Listener {
     private static final int BLE_PERMISSION_REQUEST = 4513;
+    private static final int LOCATION_PERMISSION_REQUEST = 4514;
+    private static final String SPEED_PREFS = "bus_speed_settings";
+    private static final String SPEED_SOURCE_KEY = "speed_source";
+    private static final String MANUAL_SOURCE = "Manual Simulator";
+    private static final String GPS_SOURCE = "GPS Road Speed";
 
     private final int amber = Color.rgb(255, 145, 20);
     private final int textPrimary = Color.rgb(245, 245, 245);
@@ -41,6 +48,7 @@ public final class MainActivity extends Activity implements BadgeBleClient.Liste
     private Button sendButton;
     private BadgeBleClient bleClient;
     private BusAudioController audioController;
+    private GpsSpeedController gpsSpeedController;
     private TextView speakerStatusText;
     private TextView speedText;
     private TextView engineBandText;
@@ -48,8 +56,13 @@ public final class MainActivity extends Activity implements BadgeBleClient.Liste
     private TextView soundPackDescriptionText;
     private TextView soundPackQaText;
     private Spinner soundPackSpinner;
+    private Spinner speedSourceSpinner;
     private SeekBar speedSeekBar;
+    private TextView speedLabelText;
+    private TextView gpsStatusText;
     private Button engineButton;
+    private boolean gpsMode;
+    private boolean activityResumed;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -57,7 +70,9 @@ public final class MainActivity extends Activity implements BadgeBleClient.Liste
         bleClient = new BadgeBleClient(this, this);
         setContentView(buildUi());
         audioController = new BusAudioController(this, this);
+        gpsSpeedController = new GpsSpeedController(this, this);
         configureSoundProfiles();
+        configureSpeedSource();
 
         List<String> names = DestinationLibrary.names();
         if (!names.isEmpty()) {
@@ -176,7 +191,7 @@ public final class MainActivity extends Activity implements BadgeBleClient.Liste
         root.addView(help, helpLp);
 
         TextView credit = text(
-                "Prototype 0.3 • BLE display + layered Bluetooth media audio",
+                "Prototype 0.5 • BLE display + GPS-following Bluetooth media audio",
                 11, Color.rgb(120, 120, 120), false);
         credit.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams creditLp = matchWrap();
@@ -243,11 +258,32 @@ public final class MainActivity extends Activity implements BadgeBleClient.Liste
         qaLp.topMargin = dp(8);
         root.addView(soundPackQaText, qaLp);
 
-        TextView speedLabel = text("SIMULATED SPEED", 14, textSecondary, true);
-        speedLabel.setGravity(Gravity.CENTER);
+        TextView speedSourceLabel = text("Speed Source", 14, textSecondary, true);
+        LinearLayout.LayoutParams sourceLabelLp = matchWrap();
+        sourceLabelLp.topMargin = dp(20);
+        root.addView(speedSourceLabel, sourceLabelLp);
+
+        speedSourceSpinner = new Spinner(this);
+        speedSourceSpinner.setPopupBackgroundDrawable(
+                new android.graphics.drawable.ColorDrawable(Color.WHITE));
+        speedSourceSpinner.setBackgroundTintList(ColorStateList.valueOf(amber));
+        root.addView(speedSourceSpinner, matchWrapHeight(56));
+
+        gpsStatusText = text("Manual simulator active.", 13, textSecondary, false);
+        root.addView(gpsStatusText, matchWrap());
+
+        Button gpsSettings = soundButton("GPS SETTINGS");
+        gpsSettings.setOnClickListener(v ->
+                startActivity(new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)));
+        LinearLayout.LayoutParams settingsLp = matchWrapHeight(48);
+        settingsLp.topMargin = dp(6);
+        root.addView(gpsSettings, settingsLp);
+
+        speedLabelText = text("SIMULATED SPEED", 14, textSecondary, true);
+        speedLabelText.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams speedLabelLp = matchWrap();
-        speedLabelLp.topMargin = dp(20);
-        root.addView(speedLabel, speedLabelLp);
+        speedLabelLp.topMargin = dp(14);
+        root.addView(speedLabelText, speedLabelLp);
 
         speedText = text("00 km/h", 28, amber, true);
         speedText.setGravity(Gravity.CENTER);
@@ -259,8 +295,7 @@ public final class MainActivity extends Activity implements BadgeBleClient.Liste
 
         speedSeekBar = seekBar(80, 0);
         speedSeekBar.setOnSeekBarChangeListener(seekListener(value -> {
-            speedText.setText(String.format(java.util.Locale.US, "%02d km/h", value));
-            if (audioController != null) audioController.setSpeedKmh(value);
+            if (!gpsMode) applyManualSpeed();
         }));
         root.addView(speedSeekBar, matchWrapHeight(52));
 
@@ -391,6 +426,87 @@ public final class MainActivity extends Activity implements BadgeBleClient.Liste
         });
     }
 
+    private void configureSpeedSource() {
+        List<String> sources = java.util.Arrays.asList(MANUAL_SOURCE, GPS_SOURCE);
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(
+                this, android.R.layout.simple_spinner_item, sources);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        speedSourceSpinner.setAdapter(adapter);
+
+        SharedPreferences preferences = getSharedPreferences(SPEED_PREFS, MODE_PRIVATE);
+        boolean savedGps = GPS_SOURCE.equals(preferences.getString(SPEED_SOURCE_KEY, MANUAL_SOURCE));
+        if (savedGps && gpsSpeedController.hasPreciseLocationPermission()) {
+            gpsMode = true;
+            speedSourceSpinner.setSelection(1, false);
+            updateSpeedSourceUi();
+        } else {
+            gpsMode = false;
+            speedSourceSpinner.setSelection(0, false);
+            if (savedGps) {
+                preferences.edit().putString(SPEED_SOURCE_KEY, MANUAL_SOURCE).apply();
+                gpsStatusText.setText("Precise location is required for GPS speed.");
+            }
+            updateSpeedSourceUi();
+            applyManualSpeed();
+        }
+
+        speedSourceSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                if (position == 1 && !gpsMode) selectGpsExplicitly();
+                else if (position == 0 && gpsMode) selectManualMode(null);
+            }
+
+            @Override public void onNothingSelected(AdapterView<?> parent) {}
+        });
+    }
+
+    private void selectGpsExplicitly() {
+        gpsMode = true;
+        updateSpeedSourceUi();
+        if (!gpsSpeedController.hasPreciseLocationPermission()) {
+            gpsStatusText.setText("Precise location permission is required.");
+            requestPermissions(new String[] {
+                    Manifest.permission.ACCESS_COARSE_LOCATION,
+                    Manifest.permission.ACCESS_FINE_LOCATION
+            }, LOCATION_PERMISSION_REQUEST);
+            return;
+        }
+        saveSpeedSource(GPS_SOURCE);
+        if (activityResumed) gpsSpeedController.start();
+    }
+
+    private void selectManualMode(String status) {
+        gpsMode = false;
+        gpsSpeedController.stop();
+        gpsSpeedController.resetFilter();
+        saveSpeedSource(MANUAL_SOURCE);
+        if (speedSourceSpinner.getSelectedItemPosition() != 0) {
+            speedSourceSpinner.setSelection(0, false);
+        }
+        updateSpeedSourceUi();
+        applyManualSpeed();
+        gpsStatusText.setText(status == null ? "Manual simulator active." : status);
+    }
+
+    private void updateSpeedSourceUi() {
+        speedSeekBar.setEnabled(!gpsMode);
+        speedSeekBar.setAlpha(gpsMode ? 0.45f : 1f);
+        speedLabelText.setText(gpsMode ? "GPS ROAD SPEED" : "SIMULATED SPEED");
+        if (gpsMode) gpsStatusText.setText("Waiting for GPS fix...");
+    }
+
+    private void applyManualSpeed() {
+        int speed = speedSeekBar.getProgress();
+        speedText.setText(String.format(java.util.Locale.US, "%02d km/h", speed));
+        if (audioController != null) audioController.setSpeedKmh(speed);
+    }
+
+    private void saveSpeedSource(String source) {
+        getSharedPreferences(SPEED_PREFS, MODE_PRIVATE).edit()
+                .putString(SPEED_SOURCE_KEY, source).apply();
+    }
+
     private void updateSoundProfileInfo(SoundPackProfile profile) {
         soundPackDescriptionText.setText(profile == null
                 ? "No valid sound profile available" : profile.description);
@@ -471,18 +587,51 @@ public final class MainActivity extends Activity implements BadgeBleClient.Liste
             statusText.setText(granted
                     ? "Bluetooth permission granted. Press SEND TO BUS."
                     : "Bluetooth permission was not granted.");
+        } else if (requestCode == LOCATION_PERMISSION_REQUEST) {
+            if (gpsSpeedController.hasPreciseLocationPermission()) {
+                saveSpeedSource(GPS_SOURCE);
+                if (activityResumed) gpsSpeedController.start();
+            } else {
+                selectManualMode("Precise location is required for GPS speed.");
+            }
         }
+    }
+
+    @Override
+    public void onGpsSpeed(float filteredKmh) {
+        runOnUiThread(() -> {
+            if (!gpsMode) return;
+            speedText.setText(String.format(java.util.Locale.US, "%.1f km/h", filteredKmh));
+            int appliedSpeed = Math.max(0, Math.min(80, Math.round(filteredKmh)));
+            if (audioController != null) audioController.setSpeedKmh(appliedSpeed);
+        });
+    }
+
+    @Override
+    public void onGpsStatus(String status) {
+        runOnUiThread(() -> {
+            if (!gpsMode) return;
+            if (!gpsSpeedController.hasPreciseLocationPermission()
+                    && "Precise location is required for GPS speed.".equals(status)) {
+                selectManualMode(status);
+            } else {
+                gpsStatusText.setText(status);
+            }
+        });
     }
 
     @Override
     protected void onDestroy() {
         if (bleClient != null) bleClient.cancel();
+        if (gpsSpeedController != null) gpsSpeedController.release();
         if (audioController != null) audioController.release();
         super.onDestroy();
     }
 
     @Override
     protected void onStop() {
+        activityResumed = false;
+        if (gpsSpeedController != null) gpsSpeedController.stop();
         if (audioController != null) audioController.setEngineEnabled(false);
         super.onStop();
     }
@@ -490,7 +639,15 @@ public final class MainActivity extends Activity implements BadgeBleClient.Liste
     @Override
     protected void onResume() {
         super.onResume();
+        activityResumed = true;
         if (audioController != null) audioController.refreshSpeakerStatus();
+        if (gpsMode) {
+            if (gpsSpeedController.hasPreciseLocationPermission()) {
+                gpsSpeedController.start();
+            } else {
+                selectManualMode("Precise location is required for GPS speed.");
+            }
+        }
     }
 
     private TextView text(String value, int sp, int color, boolean bold) {
