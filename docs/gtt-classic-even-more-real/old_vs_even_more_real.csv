@@ -1,0 +1,6 @@
+gear,old_loop_s,new_loop_s,old_rms_variation_db_std,new_rms_variation_db_std,rms_variation_change_percent,old_integrated_lufs,new_integrated_lufs
+1,1.196,1.567,1.189,0.957,-19.5,-14.79,-15.98
+2,1.046,1.359,2.19,0.979,-55.3,-14.42,-15.7
+3,1.046,1.181,1.537,1.111,-27.7,-14.61,-15.39
+4,2.056,1.161,1.337,1.023,-23.5,-14.59,-15.08
+5,7.736,3.203,1.108,0.985,-11.1,-13.64,-14.77

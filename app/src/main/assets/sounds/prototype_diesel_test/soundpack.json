@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "id": "prototype_diesel_test",
+  "name": "Prototype Diesel Test",
+  "variant": "synthetic-single-loop",
+  "vehicle": {
+    "manufacturer": "Leo Bus Display",
+    "model": "Synthetic Test Bus",
+    "powertrain": "diesel-test",
+    "transmission": "single-loop",
+    "gears": 1
+  },
+  "engine": {
+    "idle": {
+      "file": "engine_loop.wav",
+      "loop": true,
+      "rateMin": 0.70,
+      "rateMax": 1.55,
+      "gain": 1.0,
+      "speedMin": 0,
+      "speedMax": 80,
+      "downshiftBelow": 0
+    },
+    "gears": [
+      {"gear": 1, "file": "engine_loop.wav", "rateMin": 0.70, "rateMax": 1.55, "gain": 1.0, "speedMin": 0, "speedMax": 80, "downshiftBelow": 0}
+    ]
+  },
+  "transmission": {
+    "crossfadeMs": 250,
+    "representativeShift": "gear_shift.wav",
+    "downshift": null
+  },
+  "effects": {
+    "engineStart": "engine_start.wav",
+    "engineStartDurationMs": 850,
+    "brake": null,
+    "horn": "horn.wav",
+    "doorsOpen": null,
+    "doorsClose": null
+  }
+}

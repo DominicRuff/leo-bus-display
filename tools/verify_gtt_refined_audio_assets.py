@@ -3,15 +3,13 @@ from pathlib import Path
 import subprocess, json
 
 ROOT = Path(__file__).resolve().parents[1]
-RAW = ROOT / "app/src/main/res/raw"
+RAW = ROOT / "app/src/main/assets/sounds/gtt_classic_dynamic_rpm"
 REQUIRED = [
-    "gtt_engine_start.ogg",
-    "gtt_idle.ogg",
-    "gtt_gear1.ogg", "gtt_gear2.ogg", "gtt_gear3.ogg",
-    "gtt_gear4.ogg", "gtt_gear5.ogg",
-    "gtt_shift_1_2.ogg", "gtt_shift_2_3.ogg",
-    "gtt_shift_3_4.ogg", "gtt_shift_4_5.ogg",
-    "gtt_downshift.ogg", "gtt_brake.ogg",
+    "engine_start.ogg",
+    "idle.ogg",
+    "gear1.ogg", "gear2.ogg", "gear3.ogg", "gear4.ogg", "gear5.ogg",
+    "shift_1_2.ogg", "shift_2_3.ogg", "shift_3_4.ogg", "shift_4_5.ogg",
+    "downshift.ogg", "brake.ogg",
 ]
 
 for name in REQUIRED:

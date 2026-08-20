@@ -3,16 +3,16 @@
 This package is prepared for Leo Bus Display Audio Patch 007.
 
 Runtime source selection
-- `gtt_idle.ogg` and `gtt_gear1.ogg` ... `gtt_gear5.ogg` come from the NEW
+- `idle.ogg` and `gear1.ogg` ... `gear5.ogg` in the Dynamic RPM profile come from the NEW
   refined `loop_ready/` archive and are the files to loop at runtime.
 - A common +2 dB gain was applied to those refined loop-ready files for the
   small Bluetooth speaker.
-- `gtt_engine_start.ogg`, the four short `gtt_shift_*` one-shots,
-  `gtt_downshift.ogg`, and `gtt_brake.ogg` are retained from the earlier
+- `engine_start.ogg`, the four short `shift_*` one-shots,
+  `downshift.ogg`, and `brake.ogg` are retained from the earlier
   app-ready GTT set because the refined archive focuses on loops and transition
   previews and does not replace those standalone runtime assets.
-- The existing synthetic `prototype_horn.wav` remains the horn fallback until
-  a genuine GTT horn recording is supplied.
+- GTT horn and door effects are declared unavailable until genuine recordings
+  are supplied. The synthetic prototype profile retains its own horn.
 
 Do NOT use `docs/refined_transition_previews/*.ogg` as runtime loops or simple
 shift one-shots. The refined source README describes them as standalone

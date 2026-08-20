@@ -8,7 +8,8 @@ from pathlib import Path
 from typing import List
 
 SAMPLE_RATE = 22050
-OUTPUT_DIR = Path(__file__).resolve().parents[1] / "app/src/main/res/raw"
+OUTPUT_DIR = (Path(__file__).resolve().parents[1]
+              / "app/src/main/assets/sounds/prototype_diesel_test")
 
 
 def clamp(value: float) -> float:
@@ -89,10 +90,10 @@ def horn() -> List[float]:
 
 
 def main() -> None:
-    write_wav("prototype_engine_start.wav", engine_start())
-    write_wav("prototype_engine_loop.wav", engine_loop())
-    write_wav("prototype_gear_shift.wav", gear_shift())
-    write_wav("prototype_horn.wav", horn())
+    write_wav("engine_start.wav", engine_start())
+    write_wav("engine_loop.wav", engine_loop())
+    write_wav("gear_shift.wav", gear_shift())
+    write_wav("horn.wav", horn())
     print(f"Generated 4 synthetic WAV files in {OUTPUT_DIR}")
 
 

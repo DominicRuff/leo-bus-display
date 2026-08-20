@@ -3,7 +3,7 @@
 Android prototype for the Motorola Moto G54 and compatible Android phones,
 controlling an 11×44 Funduino / LeSun B1144-style Bluetooth LED badge.
 
-## Prototype 0.3
+## Prototype 0.4
 
 - Fixed vehicle number: **4513**
 - 44×11 exact bitmap output
@@ -16,6 +16,8 @@ controlling an 11×44 Funduino / LeSun B1144-style Bluetooth LED badge.
 - Synthetic Prototype Diesel Test engine, gear-change, and horn sounds
 - Manual 0–80 km/h development speed simulator
 - GTT Classic Bus layered idle and five-gear sound pack
+- Selectable six-gear GTT Classic Even More Real pack with anti-surge loops
+- Real door-open and door-close QA effects in the Even More Real pack
 - 250 ms crossfaded manual gear transitions with shift effects
 - Destination presets:
   - Traversella
@@ -52,6 +54,16 @@ downshifts crossfade without automatically playing the long downshift effect.
 its original single-loop behavior. The speed slider is a manual development
 simulator; GPS-driven speed and a fully automatic gearbox are planned for
 future audio patches.
+
+`GTT Classic - Even More Real` is available for manual A/B selection against
+Dynamic RPM. It uses six manual steady-RPM loops with deliberately narrow
+playback-rate ranges, provisional 2/14/24/35/47/61 km/h upshift boundaries,
+and real door sounds. Its horn and 5→6 shift transient are intentionally
+unavailable; the 5→6 engine transition still crossfades normally.
+
+Sound packs are loaded from JSON profiles under `app/src/main/assets/sounds`.
+See `docs/bus-sound-profiles.md` for the profile schema and instructions for
+adding another bus without changing the playback engine.
 
 ## Build
 

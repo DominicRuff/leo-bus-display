@@ -7,12 +7,13 @@ from pathlib import Path
 
 SAMPLE_RATE = 22050
 MAX_DECODED_BYTES = 512 * 1024
-RAW_DIR = Path(__file__).resolve().parents[1] / "app/src/main/res/raw"
+RAW_DIR = (Path(__file__).resolve().parents[1]
+           / "app/src/main/assets/sounds/prototype_diesel_test")
 REQUIRED = (
-    "prototype_engine_start.wav",
-    "prototype_engine_loop.wav",
-    "prototype_gear_shift.wav",
-    "prototype_horn.wav",
+    "engine_start.wav",
+    "engine_loop.wav",
+    "gear_shift.wav",
+    "horn.wav",
 )
 
 
@@ -26,7 +27,7 @@ for name in REQUIRED:
         assert audio.getsampwidth() == 2, f"{name}: expected 16-bit samples"
         decoded_bytes = audio.getnframes() * audio.getnchannels() * audio.getsampwidth()
         assert 0 < decoded_bytes < MAX_DECODED_BYTES, f"{name}: too large for SoundPool"
-        if name == "prototype_engine_loop.wav":
+        if name == "engine_loop.wav":
             frames = audio.readframes(audio.getnframes())
             samples = struct.unpack(f"<{len(frames) // 2}h", frames)
             assert abs(samples[-1] - samples[0]) < 2048, \

@@ -1,0 +1,105 @@
+{
+  "schemaVersion": 1,
+  "id": "gtt_classic_even_more_real",
+  "name": "GTT Classic Bus - Even More Real",
+  "variant": "manual-steady-rpm-loops-v1",
+  "vehicle": {
+    "manufacturer": "GTT",
+    "model": "Classic Bus",
+    "powertrain": "diesel",
+    "transmission": "automatic",
+    "gears": 6
+  },
+  "engine": {
+    "idle": {
+      "file": "idle.ogg",
+      "loop": true,
+      "rateMin": 0.98,
+      "rateMax": 1.02,
+      "gain": 0.9,
+      "speedMin": 0,
+      "speedMax": 2,
+      "downshiftBelow": 0
+    },
+    "gears": [
+      {
+        "gear": 1,
+        "file": "gear1.ogg",
+        "rateMin": 0.97,
+        "rateMax": 1.04,
+        "gain": 1.0,
+        "speedMin": 2,
+        "speedMax": 14,
+        "downshiftBelow": 2
+      },
+      {
+        "gear": 2,
+        "file": "gear2.ogg",
+        "rateMin": 0.98,
+        "rateMax": 1.04,
+        "gain": 1.0,
+        "speedMin": 14,
+        "speedMax": 24,
+        "downshiftBelow": 11
+      },
+      {
+        "gear": 3,
+        "file": "gear3.ogg",
+        "rateMin": 0.985,
+        "rateMax": 1.04,
+        "gain": 1.0,
+        "speedMin": 24,
+        "speedMax": 35,
+        "downshiftBelow": 20
+      },
+      {
+        "gear": 4,
+        "file": "gear4.ogg",
+        "rateMin": 0.99,
+        "rateMax": 1.035,
+        "gain": 1.0,
+        "speedMin": 35,
+        "speedMax": 47,
+        "downshiftBelow": 31
+      },
+      {
+        "gear": 5,
+        "file": "gear5.ogg",
+        "rateMin": 0.995,
+        "rateMax": 1.03,
+        "gain": 1.0,
+        "speedMin": 47,
+        "speedMax": 61,
+        "downshiftBelow": 42
+      },
+      {
+        "gear": 6,
+        "file": "gear6.ogg",
+        "rateMin": 1.0,
+        "rateMax": 1.025,
+        "gain": 1.0,
+        "speedMin": 61,
+        "speedMax": 80,
+        "downshiftBelow": 55
+      }
+    ]
+  },
+  "transmission": {
+    "crossfadeMs": 280,
+    "shift12": "shift_1_2.ogg",
+    "shift23": "shift_2_3.ogg",
+    "shift34": "shift_3_4.ogg",
+    "shift45": "shift_4_5.ogg",
+    "shift56": null,
+    "representativeShift": "shift_2_3.ogg",
+    "downshift": "downshift_6_5.ogg"
+  },
+  "effects": {
+    "engineStart": "engine_start.ogg",
+    "engineStartDurationMs": 2600,
+    "brake": "brake.ogg",
+    "horn": null,
+    "doorsOpen": "doors_open.ogg",
+    "doorsClose": "doors_close.ogg"
+  }
+}

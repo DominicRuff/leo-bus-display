@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "id": "gtt_classic_dynamic_rpm",
+  "name": "GTT Classic Bus",
+  "variant": "dynamic-rpm",
+  "vehicle": {
+    "manufacturer": "GTT",
+    "model": "Classic Bus",
+    "powertrain": "diesel",
+    "transmission": "automatic",
+    "gears": 5
+  },
+  "engine": {
+    "idle": {
+      "file": "idle.ogg",
+      "loop": true,
+      "rateMin": 0.94,
+      "rateMax": 1.08,
+      "gain": 1.0,
+      "speedMin": 0,
+      "speedMax": 2,
+      "downshiftBelow": 0
+    },
+    "gears": [
+      {"gear": 1, "file": "gear1.ogg", "rateMin": 0.94, "rateMax": 1.08, "gain": 1.0, "speedMin": 2, "speedMax": 18, "downshiftBelow": 2},
+      {"gear": 2, "file": "gear2.ogg", "rateMin": 0.95, "rateMax": 1.075, "gain": 1.0, "speedMin": 18, "speedMax": 30, "downshiftBelow": 14},
+      {"gear": 3, "file": "gear3.ogg", "rateMin": 0.96, "rateMax": 1.07, "gain": 1.0, "speedMin": 30, "speedMax": 45, "downshiftBelow": 26},
+      {"gear": 4, "file": "gear4.ogg", "rateMin": 0.96, "rateMax": 1.08, "gain": 1.0, "speedMin": 45, "speedMax": 60, "downshiftBelow": 40},
+      {"gear": 5, "file": "gear5.ogg", "rateMin": 0.985, "rateMax": 1.04, "gain": 1.0, "speedMin": 60, "speedMax": 80, "downshiftBelow": 55}
+    ]
+  },
+  "transmission": {
+    "crossfadeMs": 260,
+    "shift12": "shift_1_2.ogg",
+    "shift23": "shift_2_3.ogg",
+    "shift34": "shift_3_4.ogg",
+    "shift45": "shift_4_5.ogg",
+    "downshift": "downshift.ogg"
+  },
+  "effects": {
+    "engineStart": "engine_start.ogg",
+    "engineStartDurationMs": 2600,
+    "brake": "brake.ogg",
+    "horn": null,
+    "doorsOpen": null,
+    "doorsClose": null
+  }
+}

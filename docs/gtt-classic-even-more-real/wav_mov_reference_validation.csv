@@ -1,0 +1,13 @@
+folder,wav,mov,wav_duration_s,audio_correlation
+close doors,close doors.WAV,close doors.mov,3.250794,0.999392
+gear 1 acceleration,gear 1 acceleration.WAV,gear 1 acceleration.mov,6.571247,0.999457
+gear 2 acceleration,gear 2 acceleration.WAV,gear 2 acceleration.mov,2.182676,0.999291
+gear 2 to 1 deceleration,gear 2 to 1 deceleration.WAV,gear 2 to 1 deceleration.mov,6.989206,0.999687
+gear 3 acceleration,gear 3 acceleration.WAV,gear 3 acceleration.mov,2.647075,0.999357
+gear 3 to 2 deceleration,gear 3 to 2 deceleration.WAV,gear 3 to 2 deceleration.mov,2.089796,0.999581
+gear 4 acceleration,gear 4 acceleration.WAV,gear 4 acceleration.mov,3.413333,0.999556
+gear 5 acceleration,gear 5 acceleration.WAV,gear 5 acceleration.WAV.mov,8.475283,0.999832
+gear 5 to 4 deceleration,gear 5 to4 deceleration.WAV,gear 5 to4 deceleration.mov,1.578957,0.999702
+gear 6 acceleration,gear 6 acceleration.WAV,gear 6 acceleration.mov,40.286621,0.999879
+gear 6 to 5 deceleration,gear 6 to 5 deceleration.WAV,gear 6 to 5 deceleration.mov,4.643991,0.999727
+open doors,open doors.WAV,open doors.mov,6.176508,0.998928

@@ -1,0 +1,7 @@
+gear,source_file,source_start_s,source_end_s,source_span_s,final_loop_s,crossfade_ms,source_rms_std_db,final_rms_std_db,source_lf_centroid_slope_hz_s,integrated_lufs,true_peak_dbfs,decoded_seam_jump,boundary_rotation_samples
+1,gear 1 acceleration/gear 1 acceleration.WAV,3.855,5.642,1.787,1.567,220,1.228,0.957,2.685,-15.98,-3.92,0.008125,42058
+2,gear 2 acceleration/gear 2 acceleration.WAV,0.337,1.916,1.579,1.359,220,1.149,0.979,0.052,-15.7,-4.13,0.001653,58808
+3,gear 3 acceleration/gear 3 acceleration.WAV,0.488,1.869,1.381,1.181,200,1.082,1.111,1.29,-15.39,-4.25,0.000323,24235
+4,gear 4 acceleration/gear 4 acceleration.WAV,1.405,2.786,1.381,1.161,220,1.11,1.023,-1.756,-15.08,-2.27,0.000208,27969
+5,gear 5 acceleration/gear 5 acceleration.WAV,4.632,8.115,3.483,3.203,280,0.897,0.985,0.268,-14.77,-2.48,0.008981,44322
+6,gear 6 acceleration/gear 6 acceleration.WAV,15.337,21.316,5.979,5.659,320,1.001,1.003,-0.424,-14.57,-3.4,0.003646,130196

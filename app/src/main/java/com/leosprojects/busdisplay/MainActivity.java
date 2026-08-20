@@ -20,6 +20,9 @@ import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.AdapterView;
 
+import com.leosprojects.busdisplay.sound.SoundPackProfile;
+
+import java.util.ArrayList;
 import java.util.List;
 
 public final class MainActivity extends Activity implements BadgeBleClient.Listener,
@@ -42,6 +45,10 @@ public final class MainActivity extends Activity implements BadgeBleClient.Liste
     private TextView speedText;
     private TextView engineBandText;
     private TextView audioStatusText;
+    private TextView soundPackDescriptionText;
+    private TextView soundPackQaText;
+    private Spinner soundPackSpinner;
+    private SeekBar speedSeekBar;
     private Button engineButton;
 
     @Override
@@ -50,6 +57,7 @@ public final class MainActivity extends Activity implements BadgeBleClient.Liste
         bleClient = new BadgeBleClient(this, this);
         setContentView(buildUi());
         audioController = new BusAudioController(this, this);
+        configureSoundProfiles();
 
         List<String> names = DestinationLibrary.names();
         if (!names.isEmpty()) {
@@ -219,28 +227,21 @@ public final class MainActivity extends Activity implements BadgeBleClient.Liste
         packLabelLp.topMargin = dp(18);
         root.addView(packLabel, packLabelLp);
 
-        Spinner soundPackSpinner = new Spinner(this);
-        ArrayAdapter<BusSoundPack> packAdapter = new ArrayAdapter<>(
-                this, android.R.layout.simple_spinner_item, BusSoundPack.packs());
-        packAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        soundPackSpinner.setAdapter(packAdapter);
+        soundPackSpinner = new Spinner(this);
         soundPackSpinner.setPopupBackgroundDrawable(
                 new android.graphics.drawable.ColorDrawable(Color.WHITE));
         soundPackSpinner.setBackgroundTintList(ColorStateList.valueOf(amber));
-        soundPackSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-            @Override
-            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                if (audioController != null) {
-                    audioController.setSoundPack((BusSoundPack) parent.getItemAtPosition(position));
-                }
-            }
-
-            @Override
-            public void onNothingSelected(AdapterView<?> parent) {}
-        });
         LinearLayout.LayoutParams packLp = matchWrapHeight(56);
         packLp.topMargin = dp(4);
         root.addView(soundPackSpinner, packLp);
+
+        soundPackDescriptionText = text("Loading sound profiles…", 13, textSecondary, false);
+        root.addView(soundPackDescriptionText, matchWrap());
+
+        soundPackQaText = text("", 12, textSecondary, false);
+        LinearLayout.LayoutParams qaLp = matchWrap();
+        qaLp.topMargin = dp(8);
+        root.addView(soundPackQaText, qaLp);
 
         TextView speedLabel = text("SIMULATED SPEED", 14, textSecondary, true);
         speedLabel.setGravity(Gravity.CENTER);
@@ -256,12 +257,12 @@ public final class MainActivity extends Activity implements BadgeBleClient.Liste
         engineBandText.setGravity(Gravity.CENTER);
         root.addView(engineBandText, matchWrap());
 
-        SeekBar speed = seekBar(80, 0);
-        speed.setOnSeekBarChangeListener(seekListener(value -> {
+        speedSeekBar = seekBar(80, 0);
+        speedSeekBar.setOnSeekBarChangeListener(seekListener(value -> {
             speedText.setText(String.format(java.util.Locale.US, "%02d km/h", value));
             if (audioController != null) audioController.setSpeedKmh(value);
         }));
-        root.addView(speed, matchWrapHeight(52));
+        root.addView(speedSeekBar, matchWrapHeight(52));
 
         engineButton = soundButton("ENGINE ON");
         engineButton.setTextSize(17);
@@ -313,6 +314,88 @@ public final class MainActivity extends Activity implements BadgeBleClient.Liste
         gearLp.topMargin = dp(8);
         gearLp.bottomMargin = dp(18);
         root.addView(gear, gearLp);
+
+        Button testIdle = soundButton("TEST IDLE");
+        testIdle.setOnClickListener(v -> {
+            speedSeekBar.setProgress(0);
+            if (audioController != null) audioController.setEngineEnabled(true);
+        });
+        root.addView(testIdle, matchWrapHeight(50));
+
+        Button testAcceleration = soundButton("TEST ACCELERATION");
+        testAcceleration.setOnClickListener(v -> {
+            speedSeekBar.setProgress(Math.min(80, speedSeekBar.getProgress() + 10));
+            if (audioController != null) audioController.setEngineEnabled(true);
+        });
+        root.addView(testAcceleration, matchWrapHeight(50));
+
+        Button testBrake = soundButton("TEST BRAKE");
+        testBrake.setOnClickListener(v -> {
+            if (audioController != null) audioController.playBrake();
+        });
+        root.addView(testBrake, matchWrapHeight(50));
+
+        Button testDoorsOpen = soundButton("TEST DOORS OPEN");
+        testDoorsOpen.setOnClickListener(v -> {
+            if (audioController != null) audioController.openDoors();
+        });
+        root.addView(testDoorsOpen, matchWrapHeight(50));
+
+        Button testDoorsClose = soundButton("TEST DOORS CLOSE");
+        testDoorsClose.setOnClickListener(v -> {
+            if (audioController != null) audioController.closeDoors();
+        });
+        root.addView(testDoorsClose, matchWrapHeight(50));
+
+        Button testAll = soundButton("TEST ALL SOUNDS");
+        testAll.setOnClickListener(v -> {
+            if (audioController != null) {
+                audioController.setEngineEnabled(true);
+                audioController.playGearChange();
+                audioController.playBrake();
+                audioController.playHorn();
+            }
+        });
+        LinearLayout.LayoutParams allLp = matchWrapHeight(50);
+        allLp.bottomMargin = dp(18);
+        root.addView(testAll, allLp);
+    }
+
+    private void configureSoundProfiles() {
+        List<SoundPackProfile> profiles = audioController == null
+                ? new ArrayList<>() : audioController.getAvailableProfiles();
+        ArrayAdapter<SoundPackProfile> adapter = new ArrayAdapter<>(
+                this, android.R.layout.simple_spinner_item, profiles);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        soundPackSpinner.setAdapter(adapter);
+
+        SoundPackProfile selected = audioController == null
+                ? null : audioController.getSelectedProfile();
+        int selectedIndex = 0;
+        for (int index = 0; index < profiles.size(); index++) {
+            if (selected != null && selected.id.equals(profiles.get(index).id)) selectedIndex = index;
+        }
+        if (!profiles.isEmpty()) soundPackSpinner.setSelection(selectedIndex, false);
+        updateSoundProfileInfo(selected);
+        soundPackSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                SoundPackProfile profile = (SoundPackProfile) parent.getItemAtPosition(position);
+                if (audioController != null && audioController.setSoundPackProfile(profile)) {
+                    updateSoundProfileInfo(profile);
+                }
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {}
+        });
+    }
+
+    private void updateSoundProfileInfo(SoundPackProfile profile) {
+        soundPackDescriptionText.setText(profile == null
+                ? "No valid sound profile available" : profile.description);
+        soundPackQaText.setText(audioController == null
+                ? "" : audioController.getSelectedProfileQaInfo());
     }
 
     private void sendSelected() {

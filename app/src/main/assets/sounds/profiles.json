@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "defaultProfile": "gtt_classic_dynamic_rpm",
+  "profiles": [
+    {
+      "id": "gtt_classic_dynamic_rpm",
+      "name": "GTT Classic - Dynamic RPM",
+      "description": "Refined seamless engine loops with simulated RPM",
+      "folder": "sounds/gtt_classic_dynamic_rpm",
+      "enabled": true,
+      "qa": true
+    },
+    {
+      "id": "gtt_classic_even_more_real",
+      "name": "GTT Classic - Even More Real",
+      "description": "Six manual steady-RPM loops with anti-surge selection and real door sounds",
+      "folder": "sounds/gtt_classic_even_more_real",
+      "enabled": true,
+      "qa": true
+    },
+    {
+      "id": "prototype_diesel_test",
+      "name": "Prototype Diesel Test",
+      "description": "Original synthetic single-loop development fallback",
+      "folder": "sounds/prototype_diesel_test",
+      "enabled": true,
+      "qa": true
+    }
+  ]
+}
