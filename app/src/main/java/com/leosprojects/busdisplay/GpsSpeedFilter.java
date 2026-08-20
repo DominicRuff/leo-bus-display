@@ -6,12 +6,27 @@ import java.util.Arrays;
 public final class GpsSpeedFilter {
     private static final float RAW_STATIONARY_KMH = 2.0f;
     private static final float FILTERED_STATIONARY_KMH = 1.5f;
-    private static final float SMOOTHING_ALPHA = 0.35f;
+    private static final float MIN_SMOOTHING_ALPHA = 0.20f;
+    private static final float MAX_SMOOTHING_ALPHA = 1.00f;
+    private static final float DEFAULT_SMOOTHING_ALPHA = 0.80f;
 
     private final float[] samples = new float[3];
     private int sampleCount;
     private int nextSample;
     private float filteredKmh;
+    private float smoothingAlpha;
+
+    public GpsSpeedFilter() { this(DEFAULT_SMOOTHING_ALPHA); }
+
+    public GpsSpeedFilter(float smoothingAlpha) { setSmoothingAlpha(smoothingAlpha); }
+
+    public void setSmoothingAlpha(float smoothingAlpha) {
+        if (Float.isNaN(smoothingAlpha)) smoothingAlpha = DEFAULT_SMOOTHING_ALPHA;
+        this.smoothingAlpha = Math.max(MIN_SMOOTHING_ALPHA,
+                Math.min(MAX_SMOOTHING_ALPHA, smoothingAlpha));
+    }
+
+    public float getSmoothingAlpha() { return smoothingAlpha; }
 
     public float update(float rawKmh) {
         float sample = Math.max(0f, rawKmh);
@@ -25,7 +40,7 @@ public final class GpsSpeedFilter {
         float median = ordered[sampleCount / 2];
         if (sampleCount == 2) median = (ordered[0] + ordered[1]) / 2f;
 
-        filteredKmh += SMOOTHING_ALPHA * (median - filteredKmh);
+        filteredKmh += smoothingAlpha * (median - filteredKmh);
         return filteredKmh < FILTERED_STATIONARY_KMH ? 0f : filteredKmh;
     }
 

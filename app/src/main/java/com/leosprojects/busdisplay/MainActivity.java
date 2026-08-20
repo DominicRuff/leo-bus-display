@@ -33,6 +33,8 @@ public final class MainActivity extends Activity implements BadgeBleClient.Liste
     private static final int LOCATION_PERMISSION_REQUEST = 4514;
     private static final String SPEED_PREFS = "bus_speed_settings";
     private static final String SPEED_SOURCE_KEY = "speed_source";
+    private static final String GPS_RESPONSE_KEY = "gps_response_percent";
+    private static final int DEFAULT_GPS_RESPONSE = 80;
     private static final String MANUAL_SOURCE = "Manual Simulator";
     private static final String GPS_SOURCE = "GPS Road Speed";
 
@@ -58,8 +60,10 @@ public final class MainActivity extends Activity implements BadgeBleClient.Liste
     private Spinner soundPackSpinner;
     private Spinner speedSourceSpinner;
     private SeekBar speedSeekBar;
+    private SeekBar gpsResponseSeekBar;
     private TextView speedLabelText;
     private TextView gpsStatusText;
+    private TextView gpsResponseText;
     private Button engineButton;
     private boolean gpsMode;
     private boolean activityResumed;
@@ -191,7 +195,7 @@ public final class MainActivity extends Activity implements BadgeBleClient.Liste
         root.addView(help, helpLp);
 
         TextView credit = text(
-                "Prototype 0.5 • BLE display + GPS-following Bluetooth media audio",
+                "Prototype 0.6 • BLE display + responsive GPS bus audio",
                 11, Color.rgb(120, 120, 120), false);
         credit.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams creditLp = matchWrap();
@@ -271,6 +275,27 @@ public final class MainActivity extends Activity implements BadgeBleClient.Liste
 
         gpsStatusText = text("Manual simulator active.", 13, textSecondary, false);
         root.addView(gpsStatusText, matchWrap());
+
+        gpsResponseText = text("GPS Response • 80%", 14, textSecondary, true);
+        LinearLayout.LayoutParams responseLabelLp = matchWrap();
+        responseLabelLp.topMargin = dp(10);
+        root.addView(gpsResponseText, responseLabelLp);
+
+        gpsResponseSeekBar = seekBar(80, 60);
+        gpsResponseSeekBar.setOnSeekBarChangeListener(seekListener(value -> {
+            int percent = value + 20;
+            gpsResponseText.setText("GPS Response • " + percent + "%");
+            if (gpsSpeedController != null) {
+                gpsSpeedController.setSmoothingAlpha(percent / 100f);
+                getSharedPreferences(SPEED_PREFS, MODE_PRIVATE).edit()
+                        .putInt(GPS_RESPONSE_KEY, percent).apply();
+            }
+        }));
+        root.addView(gpsResponseSeekBar, matchWrapHeight(46));
+
+        TextView responseHelp = text(
+                "Higher = faster • Lower = smoother", 12, textSecondary, false);
+        root.addView(responseHelp, matchWrap());
 
         Button gpsSettings = soundButton("GPS SETTINGS");
         gpsSettings.setOnClickListener(v ->
@@ -434,6 +459,10 @@ public final class MainActivity extends Activity implements BadgeBleClient.Liste
         speedSourceSpinner.setAdapter(adapter);
 
         SharedPreferences preferences = getSharedPreferences(SPEED_PREFS, MODE_PRIVATE);
+        int response = Math.max(20, Math.min(100,
+                preferences.getInt(GPS_RESPONSE_KEY, DEFAULT_GPS_RESPONSE)));
+        gpsResponseSeekBar.setProgress(response - 20);
+        gpsSpeedController.setSmoothingAlpha(response / 100f);
         boolean savedGps = GPS_SOURCE.equals(preferences.getString(SPEED_SOURCE_KEY, MANUAL_SOURCE));
         if (savedGps && gpsSpeedController.hasPreciseLocationPermission()) {
             gpsMode = true;
@@ -492,6 +521,8 @@ public final class MainActivity extends Activity implements BadgeBleClient.Liste
     private void updateSpeedSourceUi() {
         speedSeekBar.setEnabled(!gpsMode);
         speedSeekBar.setAlpha(gpsMode ? 0.45f : 1f);
+        gpsResponseSeekBar.setEnabled(gpsMode);
+        gpsResponseSeekBar.setAlpha(gpsMode ? 1f : 0.45f);
         speedLabelText.setText(gpsMode ? "GPS ROAD SPEED" : "SIMULATED SPEED");
         if (gpsMode) gpsStatusText.setText("Waiting for GPS fix...");
     }

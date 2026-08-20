@@ -80,6 +80,9 @@ public final class GpsSpeedController implements LocationListener {
     }
 
     public void resetFilter() { filter.reset(); }
+    public void setSmoothingAlpha(float smoothingAlpha) {
+        filter.setSmoothingAlpha(smoothingAlpha);
+    }
 
     public void release() {
         stop();

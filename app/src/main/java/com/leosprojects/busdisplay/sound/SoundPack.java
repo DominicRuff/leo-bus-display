@@ -50,6 +50,8 @@ public final class SoundPack {
     public final String downshiftAsset;
     public final String engineStartAsset;
     public final long engineStartDurationMs;
+    public final String stoppingAsset;
+    public final long stoppingDurationMs;
     public final String brakeAsset;
     public final String hornAsset;
     public final String doorsOpenAsset;
@@ -60,6 +62,7 @@ public final class SoundPack {
                      List<Gear> gears, int crossfadeMs, Map<String, String> shiftAssets,
                      String representativeShiftAsset, String downshiftAsset,
                      String engineStartAsset, long engineStartDurationMs,
+                     String stoppingAsset, long stoppingDurationMs,
                      String brakeAsset, String hornAsset, String doorsOpenAsset,
                      String doorsCloseAsset) {
         this.id = id;
@@ -77,6 +80,8 @@ public final class SoundPack {
         this.downshiftAsset = downshiftAsset;
         this.engineStartAsset = engineStartAsset;
         this.engineStartDurationMs = engineStartDurationMs;
+        this.stoppingAsset = stoppingAsset;
+        this.stoppingDurationMs = stoppingDurationMs;
         this.brakeAsset = brakeAsset;
         this.hornAsset = hornAsset;
         this.doorsOpenAsset = doorsOpenAsset;
@@ -101,6 +106,7 @@ public final class SoundPack {
         add(paths, representativeShiftAsset);
         add(paths, downshiftAsset);
         add(paths, engineStartAsset);
+        add(paths, stoppingAsset);
         add(paths, brakeAsset);
         add(paths, hornAsset);
         add(paths, doorsOpenAsset);

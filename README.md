@@ -3,7 +3,7 @@
 Android prototype for the Motorola Moto G54 and compatible Android phones,
 controlling an 11×44 Funduino / LeSun B1144-style Bluetooth LED badge.
 
-## Prototype 0.5
+## Prototype 0.6
 
 - Fixed vehicle number: **4513**
 - 44×11 exact bitmap output
@@ -19,6 +19,8 @@ controlling an 11×44 Funduino / LeSun B1144-style Bluetooth LED badge.
 - Selectable six-gear GTT Classic Even More Real pack with anti-surge loops
 - Real door-open and door-close QA effects in the Even More Real pack
 - Optional foreground-only GPS road-speed following using Android's GPS provider
+- Persisted 20–100% GPS response tuning, defaulting to a responsive 80%
+- One-shot STOPPING and silent logical STOPPED states for Even More Real
 - 250 ms crossfaded manual gear transitions with shift effects
 - Destination presets:
   - Traversella
@@ -79,6 +81,16 @@ most 80 km/h. GPS updates stop whenever the Activity is no longer visible; no
 background location permission, service, network positioning, or Google Play
 Services dependency is used. The GPS SETTINGS button opens Android's normal
 Location settings.
+
+GPS Response controls exponential speed smoothing from 20% (smoother) to 100%
+(faster), defaults to 80%, and is retained across restarts. The three-sample
+median and stationary filtering remain active at every response setting.
+
+For `GTT Classic - Even More Real`, the supplied `idle.ogg` is treated as a
+single STOPPING/pneumatic recording when movement reaches zero. It is never
+looped. After its 1836 ms duration the logical engine remains on in a silent
+STOPPED state until a true stationary engine recording is supplied. Movement
+at 3 km/h or above rearms the next stopping event.
 
 ## Build
 

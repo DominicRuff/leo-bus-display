@@ -32,7 +32,8 @@ public final class SoundPackValidator {
 
     public Result validate(SoundPack pack) {
         List<String> lines = new ArrayList<>();
-        boolean valid = checkRequired("Idle", pack.idle == null ? null : pack.idle.assetPath, lines);
+        boolean valid = true;
+        checkOptional("Stopped loop", pack.idle == null ? null : pack.idle.assetPath, lines);
         if (pack.gears.isEmpty()) {
             lines.add("✗ No running gear sounds");
             valid = false;
@@ -41,6 +42,7 @@ public final class SoundPackValidator {
             valid &= checkRequired("Gear " + gear.number, gear.assetPath, lines);
         }
         checkOptional("Engine start", pack.engineStartAsset, lines);
+        checkOptional("Stopping", pack.stoppingAsset, lines);
         checkOptional("Downshift", pack.downshiftAsset, lines);
         checkOptional("Brake", pack.brakeAsset, lines);
         checkOptional("Horn", pack.hornAsset, lines);

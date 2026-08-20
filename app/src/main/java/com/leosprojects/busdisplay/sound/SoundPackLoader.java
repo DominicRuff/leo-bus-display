@@ -25,7 +25,8 @@ public final class SoundPackLoader {
         if (!profile.id.equals(id)) throw new IllegalArgumentException("Profile ID mismatch");
         JSONObject vehicle = root.getJSONObject("vehicle");
         JSONObject engine = root.getJSONObject("engine");
-        SoundPack.Gear idle = parseGear(profile, 0, engine.getJSONObject("idle"));
+        JSONObject idleJson = engine.optJSONObject("idle");
+        SoundPack.Gear idle = idleJson == null ? null : parseGear(profile, 0, idleJson);
         JSONArray gearArray = engine.getJSONArray("gears");
         List<SoundPack.Gear> gears = new ArrayList<>();
         for (int index = 0; index < gearArray.length(); index++) {
@@ -40,6 +41,10 @@ public final class SoundPackLoader {
             if (path != null) shifts.put(from + "-" + (from + 1), path);
         }
         JSONObject effects = root.getJSONObject("effects");
+        long stoppingDurationMs = effects.optLong("stoppingDurationMs", 0);
+        if (stoppingDurationMs < 0) {
+            throw new IllegalArgumentException("stoppingDurationMs must be non-negative");
+        }
         return new SoundPack(
                 id, root.getString("name"), root.optString("variant", ""),
                 vehicle.optString("manufacturer", ""), vehicle.optString("model", ""),
@@ -49,6 +54,7 @@ public final class SoundPackLoader {
                 optionalPath(profile, transmission, "downshift"),
                 optionalPath(profile, effects, "engineStart"),
                 effects.optLong("engineStartDurationMs", 0),
+                optionalPath(profile, effects, "stopping"), stoppingDurationMs,
                 optionalPath(profile, effects, "brake"), optionalPath(profile, effects, "horn"),
                 optionalPath(profile, effects, "doorsOpen"),
                 optionalPath(profile, effects, "doorsClose"));

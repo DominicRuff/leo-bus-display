@@ -11,16 +11,7 @@
     "gears": 6
   },
   "engine": {
-    "idle": {
-      "file": "idle.ogg",
-      "loop": true,
-      "rateMin": 0.98,
-      "rateMax": 1.02,
-      "gain": 0.9,
-      "speedMin": 0,
-      "speedMax": 2,
-      "downshiftBelow": 0
-    },
+    "idle": null,
     "gears": [
       {
         "gear": 1,
@@ -97,6 +88,8 @@
   "effects": {
     "engineStart": "engine_start.ogg",
     "engineStartDurationMs": 2600,
+    "stopping": "idle.ogg",
+    "stoppingDurationMs": 1836,
     "brake": "brake.ogg",
     "horn": null,
     "doorsOpen": "doors_open.ogg",

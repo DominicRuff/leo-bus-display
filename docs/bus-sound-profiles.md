@@ -8,7 +8,8 @@ a `soundpack.json` and its audio assets.
 
 1. Create `app/src/main/assets/sounds/iveco_471/`.
 2. Add a `soundpack.json` using schema version 1.
-3. Add an idle loop, one or more running/gear loops, and any optional effects.
+3. Add one or more running/gear loops, an optional stopped/idle loop, and any
+   optional effects.
 4. Add an enabled entry to `sounds/profiles.json`.
 5. Run `python3 tools/verify_sound_profiles.py`.
 
@@ -18,10 +19,13 @@ from the profile.
 
 ## Required and optional sounds
 
-Required sounds are the idle loop and at least one running gear loop. Missing
-required assets invalidate the profile. Engine start, shift transients,
-downshift, brake, horn, and door sounds are optional. Use JSON `null` for an
-unavailable optional sound; the engine never creates a silent substitute.
+At least one running gear loop is required. The continuous `engine.idle` loop
+is optional and may be `null` when stopped operation is intentionally silent.
+Engine start, the one-shot `effects.stopping`, shift transients, downshift,
+brake, horn, and door sounds are optional. `stoppingDurationMs` controls when
+STOPPING becomes STOPPED and must be non-negative. Missing required assets
+invalidate the profile; unavailable optional sounds never receive a silent
+substitute.
 
 `rateMin` and `rateMax` map the clamped 0–1 RPM position to SoundPool playback
 rate. `gain` scales that loop beneath the user's engine-volume control.
@@ -49,6 +53,11 @@ equal-power crossfade into gear 6 without layering a fabricated effect. The
 additional transition-specific downshift recordings are retained beside the
 runtime assets for future schema support; the current schema uses
 `downshift_6_5.ogg` as its representative downshift.
+
+Its historical `idle.ogg` is a 1836 ms final stopping/pneumatic recording, not
+a stationary loop. The profile therefore declares `engine.idle` as `null` and
+uses that unchanged file once as `effects.stopping`. STOPPED remains logically
+engine-on but silent until a suitable continuous stationary recording exists.
 
 Distinct source audio for GTT Original, Boosted, and a separate Seamless QA
 variant is not currently present. Those profiles are intentionally omitted

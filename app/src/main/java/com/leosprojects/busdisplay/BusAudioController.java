@@ -46,6 +46,8 @@ public final class BusAudioController {
     private final AudioFocusRequest focusRequest;
     private final Runnable startEngineLoop;
     private final Runnable crossfadeStep;
+    private final Runnable finishStopping;
+    private final EngineMotionState motionState = new EngineMotionState();
     private final SoundProfilePreferences profilePreferences;
     private final List<SoundPackProfile> availableProfiles = new ArrayList<>();
     private final Map<String, SoundPack> packsById = new LinkedHashMap<>();
@@ -58,6 +60,7 @@ public final class BusAudioController {
     private int engineStartStream;
     private int engineLoopStream;
     private int fadingEngineStream;
+    private int stoppingStream;
     private int currentSpeedKmh;
     private int currentBand;
     private int playingBand;
@@ -91,6 +94,7 @@ public final class BusAudioController {
                 .build();
         startEngineLoop = this::startEngineLoopNow;
         crossfadeStep = this::runCrossfadeStep;
+        finishStopping = this::finishStoppingNow;
         soundPool.setOnLoadCompleteListener((pool, sampleId, status) -> {
             if (!soundIdsByAsset.containsValue(sampleId)) return;
             loadedSoundIds.put(sampleId, status == 0);
@@ -189,6 +193,7 @@ public final class BusAudioController {
         loadedSoundIds.clear();
         soundPack = pack;
         selectedProfile = profile;
+        motionState.reset(currentSpeedKmh);
         soundLoadFailed = false;
         for (String asset : pack.declaredAssets()) load(asset);
         currentBand = initialBandForSpeed(currentSpeedKmh);
@@ -214,6 +219,30 @@ public final class BusAudioController {
 
     public void setSpeedKmh(int speedKmh) {
         currentSpeedKmh = Math.max(0, Math.min(80, speedKmh));
+        if (isStopAware() && !engineRequested) {
+            motionState.reset(currentSpeedKmh);
+        } else if (isStopAware()) {
+            EngineMotionState.Action action = motionState.onSpeedKmh(currentSpeedKmh);
+            if (action == EngineMotionState.Action.START_STOPPING) {
+                currentBand = 0;
+                updateTargetRate();
+                beginStopping();
+                return;
+            }
+            if (action == EngineMotionState.Action.START_MOVING) {
+                currentBand = initialBandForSpeed(currentSpeedKmh);
+                updateTargetRate();
+                listener.onEngineBandChanged(bandName());
+                cancelStoppingAndStartMoving();
+                return;
+            }
+            if (motionState.state() != EngineMotionState.State.MOVING) return;
+            if (currentSpeedKmh < 3) {
+                updateTargetRate();
+                if (engineLoopStream != 0) startRateSmoother();
+                return;
+            }
+        }
         if (soundPack != null && !isSingleLoop()) {
             int oldBand = currentBand;
             currentBand = layeredBandWithHysteresis(currentSpeedKmh, currentBand);
@@ -291,8 +320,11 @@ public final class BusAudioController {
             return;
         }
         String loopAsset = currentLoopAsset();
+        boolean silentStopped = isStopAware()
+                && motionState.state() != EngineMotionState.State.MOVING
+                && loopAsset == null;
         if (released || !engineRequested || soundPack == null
-                || !isLoaded(loopAsset)
+                || (!silentStopped && !isLoaded(loopAsset))
                 || engineStartStream != 0 || engineLoopStream != 0) return;
 
         if (soundPack.engineStartAsset != null && !isLoaded(soundPack.engineStartAsset)) return;
@@ -325,7 +357,12 @@ public final class BusAudioController {
     private void startEngineLoopNow() {
         engineStartStream = 0;
         if (released || !engineRequested || soundPack == null || engineLoopStream != 0) return;
+        if (isStopAware() && motionState.state() == EngineMotionState.State.STOPPING) return;
         SoundPack.Gear loop = currentLoop();
+        if (loop == null) {
+            listener.onEngineBandChanged("STOPPED");
+            return;
+        }
         int soundId = soundIdsByAsset.get(loop.assetPath);
         activeLoopGain = loop.gain;
         float volume = effectiveEngineVolume() * activeLoopGain;
@@ -391,22 +428,84 @@ public final class BusAudioController {
         }
     }
 
+    private void beginStopping() {
+        handler.removeCallbacks(finishStopping);
+        handler.removeCallbacks(startEngineLoop);
+        finishActiveCrossfade();
+        handler.removeCallbacks(rateSmoother);
+        if (engineStartStream != 0) {
+            soundPool.setVolume(engineStartStream, 0f, 0f);
+            soundPool.stop(engineStartStream);
+        }
+        engineStartStream = 0;
+        if (engineLoopStream != 0) {
+            soundPool.setVolume(engineLoopStream, 0f, 0f);
+            soundPool.stop(engineLoopStream);
+        }
+        engineLoopStream = 0;
+        if (stoppingStream != 0) soundPool.stop(stoppingStream);
+        stoppingStream = 0;
+        listener.onEngineBandChanged("STOPPING");
+        if (engineRequested && isLoaded(soundPack.stoppingAsset)) {
+            float volume = effectsVolume;
+            stoppingStream = soundPool.play(soundIdsByAsset.get(soundPack.stoppingAsset),
+                    volume, volume, 10, 0, 1f);
+        }
+        handler.postDelayed(finishStopping, soundPack.stoppingDurationMs);
+    }
+
+    private void finishStoppingNow() {
+        handler.removeCallbacks(finishStopping);
+        if (stoppingStream != 0) {
+            soundPool.setVolume(stoppingStream, 0f, 0f);
+            soundPool.stop(stoppingStream);
+        }
+        stoppingStream = 0;
+        motionState.completeStopping();
+        if (!engineRequested || released) return;
+        listener.onEngineBandChanged("STOPPED");
+        if (soundPack.idle != null && isLoaded(soundPack.idle.assetPath)) {
+            currentBand = 0;
+            updateTargetRate();
+            startEngineLoopNow();
+        }
+    }
+
+    private void cancelStoppingAndStartMoving() {
+        handler.removeCallbacks(finishStopping);
+        if (stoppingStream != 0) {
+            soundPool.setVolume(stoppingStream, 0f, 0f);
+            soundPool.stop(stoppingStream);
+        }
+        stoppingStream = 0;
+        if (engineRequested && engineStartStream == 0 && engineLoopStream == 0) {
+            startEngineLoopNow();
+        }
+    }
+
     private void stopEngineStreams() {
         handler.removeCallbacks(startEngineLoop);
         handler.removeCallbacks(rateSmoother);
         handler.removeCallbacks(crossfadeStep);
+        handler.removeCallbacks(finishStopping);
         if (engineStartStream != 0) soundPool.stop(engineStartStream);
         if (engineLoopStream != 0) soundPool.stop(engineLoopStream);
         if (fadingEngineStream != 0) soundPool.stop(fadingEngineStream);
+        if (stoppingStream != 0) soundPool.stop(stoppingStream);
         engineStartStream = 0;
         engineLoopStream = 0;
         fadingEngineStream = 0;
+        stoppingStream = 0;
+        if (motionState.state() == EngineMotionState.State.STOPPING) {
+            motionState.completeStopping();
+        }
     }
 
     private void stopEngine() {
         engineRequested = false;
         resumeAfterFocusGain = false;
         stopEngineStreams();
+        motionState.reset(currentSpeedKmh);
         abandonAudioFocus();
         if (!released) listener.onEngineStateChanged(false, "Engine stopped.");
     }
@@ -524,7 +623,10 @@ public final class BusAudioController {
     }
 
     private SoundPack.Gear currentLoop() {
-        return soundPack == null ? null : loopForBand(currentBand);
+        if (soundPack == null) return null;
+        if (!isStopAware()) return loopForBand(currentBand);
+        int loopBand = motionState.continuousLoopBand(currentBand, soundPack.idle != null);
+        return loopBand < 0 ? null : loopForBand(loopBand);
     }
 
     private String currentLoopAsset() {
@@ -533,8 +635,15 @@ public final class BusAudioController {
     }
 
     private String bandName() {
+        if (isStopAware() && motionState.state() != EngineMotionState.State.MOVING) {
+            return motionState.state().name();
+        }
         if (soundPack == null || isSingleLoop()) return "ENGINE LOOP";
         return currentBand == 0 ? "IDLE" : "GEAR " + currentBand;
+    }
+
+    private boolean isStopAware() {
+        return soundPack != null && (soundPack.stoppingAsset != null || soundPack.idle == null);
     }
 
     private void startRateSmoother() {

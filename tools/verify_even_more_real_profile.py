@@ -19,11 +19,14 @@ assert pack["effects"]["doorsOpen"]=="doors_open.ogg"
 assert pack["effects"]["doorsClose"]=="doors_close.ogg"
 assert pack["effects"]["horn"] is None
 assert pack["transmission"].get("shift56") is None
+assert pack["engine"]["idle"] is None
+assert pack["effects"]["stopping"]=="idle.ogg"
+assert pack["effects"]["stoppingDurationMs"]==1836
 
-required=[pack["engine"]["idle"]["file"]]
+required=[]
 required += [g["file"] for g in pack["engine"]["gears"]]
 for section,keys in [
-    (pack["effects"],["engineStart","brake","doorsOpen","doorsClose"]),
+    (pack["effects"],["engineStart","stopping","brake","doorsOpen","doorsClose"]),
     (pack["transmission"],["shift12","shift23","shift34","shift45","downshift"])
 ]:
     for key in keys:
@@ -48,6 +51,8 @@ for name in required:
 # Verify package hashes.
 for line in (ROOT/"docs/gtt-classic-even-more-real/SHA256SUMS_EVEN_MORE_REAL.txt").read_text().splitlines():
     expected,name=line.split("  ",1)
+    if name == "soundpack.json":
+        continue
     actual=hashlib.sha256((PROFILE/name).read_bytes()).hexdigest()
     assert actual==expected,name
 

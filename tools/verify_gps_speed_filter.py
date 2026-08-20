@@ -8,8 +8,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "app/src/main/java/com/leosprojects/busdisplay/GpsSpeedFilter.java"
+MOTION_SOURCE = ROOT / "app/src/main/java/com/leosprojects/busdisplay/EngineMotionState.java"
 HARNESS = r"""
 import com.leosprojects.busdisplay.GpsSpeedFilter;
+import com.leosprojects.busdisplay.EngineMotionState;
 
 public final class GpsSpeedFilterHarness {
     private static void near(float actual, float expected, float tolerance, String name) {
@@ -20,6 +22,28 @@ public final class GpsSpeedFilterHarness {
 
     public static void main(String[] args) {
         GpsSpeedFilter filter = new GpsSpeedFilter();
+        near(filter.getSmoothingAlpha(), 0.80f, 0.0001f, "default alpha");
+
+        float alpha80Fourth = 0f;
+        for (int index = 0; index < 4; index++) alpha80Fourth = filter.update(50f);
+        if (alpha80Fourth < 45f) {
+            throw new AssertionError("alpha 0.80 must reach 45 km/h within four samples");
+        }
+
+        filter = new GpsSpeedFilter(1f);
+        float fast = filter.update(50f);
+        near(fast, 50f, 0.0001f, "alpha 1.00 response");
+        filter = new GpsSpeedFilter(0.35f);
+        float slow = filter.update(50f);
+        if (!(slow < fast)) throw new AssertionError("alpha 0.35 must be slower than 1.00");
+        filter.setSmoothingAlpha(5f);
+        near(filter.getSmoothingAlpha(), 1f, 0.0001f, "upper alpha clamp");
+        filter.setSmoothingAlpha(-1f);
+        near(filter.getSmoothingAlpha(), 0.20f, 0.0001f, "lower alpha clamp");
+        filter.setSmoothingAlpha(Float.NaN);
+        near(filter.getSmoothingAlpha(), 0.80f, 0.0001f, "invalid alpha fallback");
+
+        filter = new GpsSpeedFilter();
         near(filter.update(0f), 0f, 0.0001f, "zero");
         filter.reset();
         near(filter.update(1f), 0f, 0.0001f, "raw stationary clamp");
@@ -69,10 +93,59 @@ public final class GpsSpeedFilterHarness {
 
         filter.update(80f);
         filter.reset();
-        near(filter.update(10f), 3.5f, 0.0001f, "reset smoothing history");
+        near(filter.update(10f), 8f, 0.0001f, "reset smoothing history");
         filter.reset();
         if (filter.update(-20f) < 0f) throw new AssertionError("negative output");
-        System.out.println("OK: real GpsSpeedFilter Java harness");
+
+        EngineMotionState motion = new EngineMotionState();
+        motion.reset(0);
+        if (motion.state() != EngineMotionState.State.STOPPED
+                || motion.onSpeedKmh(0) != EngineMotionState.Action.NONE) {
+            throw new AssertionError("startup at zero must remain STOPPED");
+        }
+        if (motion.continuousLoopBand(1, false) != -1) {
+            throw new AssertionError("STOPPED at zero must not select a moving loop");
+        }
+        motion.reset(2);
+        if (motion.state() != EngineMotionState.State.STOPPED
+                || motion.continuousLoopBand(1, false) != -1) {
+            throw new AssertionError("STOPPED at 2 km/h must not select Gear 1");
+        }
+        if (motion.continuousLoopBand(1, true) != 0) {
+            throw new AssertionError("STOPPED with an idle loop must select idle");
+        }
+        if (motion.onSpeedKmh(3) != EngineMotionState.Action.START_MOVING
+                || motion.continuousLoopBand(1, false) != 1) {
+            throw new AssertionError("3 km/h must permit the moving Gear 1 loop");
+        }
+        if (motion.onSpeedKmh(0) != EngineMotionState.Action.START_STOPPING
+                || motion.continuousLoopBand(1, true) != -1) {
+            throw new AssertionError("moving to zero must start STOPPING once");
+        }
+        if (motion.onSpeedKmh(0) != EngineMotionState.Action.NONE) {
+            throw new AssertionError("repeated zero must not replay STOPPING");
+        }
+        motion.completeStopping();
+        if (motion.state() != EngineMotionState.State.STOPPED) {
+            throw new AssertionError("stopping duration must complete as STOPPED");
+        }
+        if (motion.onSpeedKmh(2) != EngineMotionState.Action.NONE
+                || motion.onSpeedKmh(0) != EngineMotionState.Action.NONE) {
+            throw new AssertionError("0..2 km/h jitter must not re-arm stopping");
+        }
+        if (motion.onSpeedKmh(3) != EngineMotionState.Action.START_MOVING) {
+            throw new AssertionError("3 km/h must re-arm movement");
+        }
+        motion.onSpeedKmh(0);
+        if (motion.onSpeedKmh(3) != EngineMotionState.Action.START_MOVING) {
+            throw new AssertionError("movement during STOPPING must cancel it");
+        }
+        motion.reset(0);
+        if (motion.state() != EngineMotionState.State.STOPPED) {
+            throw new AssertionError("engine/profile reset must clear stopping state");
+        }
+        System.out.println("OK: real GPS/motion Java harness; alpha80 sample4="
+                + alpha80Fourth + " km/h");
     }
 }
 """
@@ -84,5 +157,6 @@ with tempfile.TemporaryDirectory(prefix="leo-gps-filter-") as temporary:
     directory = Path(temporary)
     harness = directory / "GpsSpeedFilterHarness.java"
     harness.write_text(HARNESS, encoding="utf-8")
-    subprocess.run(["javac", "-d", str(directory), str(SOURCE), str(harness)], check=True)
+    subprocess.run(["javac", "-d", str(directory), str(SOURCE), str(MOTION_SOURCE),
+                    str(harness)], check=True)
     subprocess.run(["java", "-cp", str(directory), "GpsSpeedFilterHarness"], check=True)

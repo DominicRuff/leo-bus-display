@@ -45,13 +45,16 @@ for profile in profiles:
     pack = json.loads((folder / "soundpack.json").read_text(encoding="utf-8"))
     assert pack["schemaVersion"] == 1
     assert pack["id"] == profile["id"]
-    idle = pack["engine"]["idle"]
+    idle = pack["engine"].get("idle")
     gears = pack["engine"]["gears"]
     assert gears, f"{profile['id']}: at least one running sound is required"
-    required = [idle["file"]] + [gear["file"] for gear in gears]
+    assert pack["effects"].get("stoppingDurationMs", 0) >= 0
+    required = ([idle["file"]] if idle is not None else [])
+    required += [gear["file"] for gear in gears]
     assert all((folder / name).is_file() for name in required)
     for section, keys in ((pack["effects"],
-                           ("engineStart", "brake", "horn", "doorsOpen", "doorsClose")),
+                           ("engineStart", "stopping", "brake", "horn",
+                            "doorsOpen", "doorsClose")),
                           (pack["transmission"],
                            ("shift12", "shift23", "shift34", "shift45",
                             "shift56", "representativeShift", "downshift"))):
@@ -75,10 +78,14 @@ assert [gear["gear"] for gear in even_more_real["engine"]["gears"]] == list(rang
 assert even_more_real["effects"]["doorsOpen"] == "doors_open.ogg"
 assert even_more_real["effects"]["doorsClose"] == "doors_close.ogg"
 assert even_more_real["effects"]["horn"] is None
+assert even_more_real["engine"]["idle"] is None
+assert even_more_real["effects"]["stopping"] == "idle.ogg"
+assert even_more_real["effects"]["stoppingDurationMs"] == 1836
 assert even_more_real["transmission"]["shift56"] is None
 assert loaded["gtt_classic_dynamic_rpm"]["effects"]["horn"] is None
 assert loaded["gtt_classic_dynamic_rpm"]["effects"]["doorsOpen"] is None
 assert loaded["gtt_classic_dynamic_rpm"]["effects"]["doorsClose"] is None
+assert loaded["gtt_classic_dynamic_rpm"]["engine"]["idle"] is not None
 
 # Validation policy: required failures invalidate; optional failures only warn.
 def validation(required, optional):
