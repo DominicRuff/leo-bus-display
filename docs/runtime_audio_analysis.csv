@@ -1,0 +1,14 @@
+file,duration_s,bytes,codec,sample_rate,channels,integrated_lufs,true_peak_dbfs
+gtt_brake.ogg,5.4,49733,vorbis,44100,1,-17.61,-3.74
+gtt_downshift.ogg,5.3,46402,vorbis,44100,1,-15.17,-2.62
+gtt_engine_start.ogg,2.6,25332,vorbis,44100,1,-17.54,-4.55
+gtt_gear1.ogg,1.196,12897,vorbis,44100,1,-14.79,-2.17
+gtt_gear2.ogg,1.046,11645,vorbis,44100,1,-14.42,-2.8
+gtt_gear3.ogg,1.046,11298,vorbis,44100,1,-14.61,-3.0
+gtt_gear4.ogg,2.056,18190,vorbis,44100,1,-14.59,-2.0
+gtt_gear5.ogg,7.736,56406,vorbis,44100,1,-13.64,-1.89
+gtt_idle.ogg,1.836,18513,vorbis,44100,1,-14.27,-2.0
+gtt_shift_1_2.ogg,0.872,11075,vorbis,44100,1,-16.85,-4.99
+gtt_shift_2_3.ogg,0.847,10455,vorbis,44100,1,-16.11,-4.18
+gtt_shift_3_4.ogg,0.897,11594,vorbis,44100,1,-17.4,-5.04
+gtt_shift_4_5.ogg,0.997,11983,vorbis,44100,1,-14.47,-1.55

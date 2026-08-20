@@ -40,6 +40,7 @@ public final class MainActivity extends Activity implements BadgeBleClient.Liste
     private BusAudioController audioController;
     private TextView speakerStatusText;
     private TextView speedText;
+    private TextView engineBandText;
     private TextView audioStatusText;
     private Button engineButton;
 
@@ -167,7 +168,7 @@ public final class MainActivity extends Activity implements BadgeBleClient.Liste
         root.addView(help, helpLp);
 
         TextView credit = text(
-                "Prototype 0.2 • BLE display + independent Bluetooth media audio",
+                "Prototype 0.3 • BLE display + layered Bluetooth media audio",
                 11, Color.rgb(120, 120, 120), false);
         credit.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams creditLp = matchWrap();
@@ -251,6 +252,10 @@ public final class MainActivity extends Activity implements BadgeBleClient.Liste
         speedText.setGravity(Gravity.CENTER);
         root.addView(speedText, matchWrap());
 
+        engineBandText = text("IDLE", 18, textPrimary, true);
+        engineBandText.setGravity(Gravity.CENTER);
+        root.addView(engineBandText, matchWrap());
+
         SeekBar speed = seekBar(80, 0);
         speed.setOnSeekBarChangeListener(seekListener(value -> {
             speedText.setText(String.format(java.util.Locale.US, "%02d km/h", value));
@@ -277,7 +282,7 @@ public final class MainActivity extends Activity implements BadgeBleClient.Liste
         LinearLayout.LayoutParams engineVolumeLp = matchWrap();
         engineVolumeLp.topMargin = dp(18);
         root.addView(engineVolumeLabel, engineVolumeLp);
-        SeekBar engineVolume = seekBar(100, 75);
+        SeekBar engineVolume = seekBar(100, 100);
         engineVolume.setOnSeekBarChangeListener(seekListener(value -> {
             if (audioController != null) audioController.setEngineVolume(value);
         }));
@@ -285,7 +290,7 @@ public final class MainActivity extends Activity implements BadgeBleClient.Liste
 
         TextView effectsVolumeLabel = text("Effects volume", 14, textSecondary, true);
         root.addView(effectsVolumeLabel, matchWrap());
-        SeekBar effectsVolume = seekBar(100, 85);
+        SeekBar effectsVolume = seekBar(100, 100);
         effectsVolume.setOnSeekBarChangeListener(seekListener(value -> {
             if (audioController != null) audioController.setEffectsVolume(value);
         }));
@@ -363,6 +368,11 @@ public final class MainActivity extends Activity implements BadgeBleClient.Liste
             engineButton.setText(enabled ? "ENGINE OFF" : "ENGINE ON");
             if (status != null && !status.isEmpty()) audioStatusText.setText(status);
         });
+    }
+
+    @Override
+    public void onEngineBandChanged(String band) {
+        runOnUiThread(() -> engineBandText.setText(band));
     }
 
     @Override

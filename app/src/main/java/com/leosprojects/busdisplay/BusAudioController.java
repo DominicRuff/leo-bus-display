@@ -9,6 +9,7 @@ import android.media.AudioManager;
 import android.media.SoundPool;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemClock;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -17,11 +18,16 @@ public final class BusAudioController {
     public interface Listener {
         void onSpeakerStatusChanged(String status);
         void onEngineStateChanged(boolean enabled, String status);
+        void onEngineBandChanged(String band);
     }
 
-    private static final float MIN_RATE = 0.70f;
-    private static final float MAX_RATE = 1.55f;
+    private static final float PROTOTYPE_MIN_RATE = 0.70f;
+    private static final float PROTOTYPE_MAX_RATE = 1.55f;
+    private static final float GTT_MIN_RATE = 0.94f;
+    private static final float GTT_MAX_RATE = 1.08f;
     private static final long RATE_UPDATE_MS = 50;
+    private static final long CROSSFADE_DURATION_MS = 250;
+    private static final long CROSSFADE_UPDATE_MS = 25;
 
     private final Context context;
     private final AudioManager audioManager;
@@ -30,21 +36,27 @@ public final class BusAudioController {
     private final SoundPool soundPool;
     private final AudioFocusRequest focusRequest;
     private final Runnable startEngineLoop;
+    private final Runnable crossfadeStep;
     private final Map<Integer, Integer> soundIdsByResource = new HashMap<>();
     private final Map<Integer, Boolean> loadedSoundIds = new HashMap<>();
 
     private BusSoundPack soundPack;
     private int engineStartStream;
     private int engineLoopStream;
+    private int fadingEngineStream;
+    private int currentSpeedKmh;
+    private int currentBand;
+    private int playingBand;
+    private long crossfadeStartedAtMs;
     private boolean engineRequested;
     private boolean resumeAfterFocusGain;
     private boolean focusOwned;
     private boolean ducked;
     private boolean released;
-    private float engineVolume = 0.75f;
-    private float effectsVolume = 0.85f;
-    private float currentRate = MIN_RATE;
-    private float targetRate = MIN_RATE;
+    private float engineVolume = 1f;
+    private float effectsVolume = 1f;
+    private float currentRate = PROTOTYPE_MIN_RATE;
+    private float targetRate = PROTOTYPE_MIN_RATE;
 
     public BusAudioController(Context context, Listener listener) {
         this.context = context.getApplicationContext();
@@ -56,10 +68,11 @@ public final class BusAudioController {
                 .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
                 .build();
         soundPool = new SoundPool.Builder()
-                .setMaxStreams(4)
+                .setMaxStreams(8)
                 .setAudioAttributes(attributes)
                 .build();
         startEngineLoop = this::startEngineLoopNow;
+        crossfadeStep = this::runCrossfadeStep;
         soundPool.setOnLoadCompleteListener((pool, sampleId, status) -> {
             loadedSoundIds.put(sampleId, status == 0);
             if (status != 0) {
@@ -68,7 +81,12 @@ public final class BusAudioController {
                 abandonAudioFocus();
                 listener.onEngineStateChanged(false, "Could not load a bus sound.");
             } else if (engineRequested) {
-                tryStartEngine();
+                if (engineLoopStream != 0 && soundPack != null && soundPack.isLayered()
+                        && playingBand != currentBand && isLoaded(currentLoopResource())) {
+                    transitionToBand(playingBand, currentBand);
+                } else {
+                    tryStartEngine();
+                }
             }
         });
 
@@ -80,7 +98,7 @@ public final class BusAudioController {
         if (audioManager != null) {
             audioManager.registerAudioDeviceCallback(audioDeviceCallback, handler);
         }
-        setSoundPack(BusSoundPack.PROTOTYPE_DIESEL_TEST);
+        setSoundPack(BusSoundPack.GTT_CLASSIC_BUS);
         refreshSpeakerStatus();
     }
 
@@ -91,10 +109,11 @@ public final class BusAudioController {
         soundIdsByResource.clear();
         loadedSoundIds.clear();
         soundPack = pack;
-        load(pack.engineStartResource());
-        load(pack.engineLoopResource());
-        load(pack.gearChangeResource());
-        load(pack.hornResource());
+        for (int resource : pack.allResources()) load(resource);
+        currentBand = pack.isLayered() ? initialBandForSpeed(currentSpeedKmh) : 0;
+        playingBand = currentBand;
+        updateTargetRate();
+        listener.onEngineBandChanged(bandName());
     }
 
     public void setEngineEnabled(boolean enabled) {
@@ -107,14 +126,24 @@ public final class BusAudioController {
         tryStartEngine();
     }
 
-    public boolean isEngineEnabled() {
-        return engineRequested;
-    }
+    public boolean isEngineEnabled() { return engineRequested; }
 
     public void setSpeedKmh(int speedKmh) {
-        int bounded = Math.max(0, Math.min(80, speedKmh));
-        targetRate = MIN_RATE + (MAX_RATE - MIN_RATE) * bounded / 80f;
-        if (engineLoopStream != 0) startRateSmoother();
+        currentSpeedKmh = Math.max(0, Math.min(80, speedKmh));
+        if (soundPack != null && soundPack.isLayered()) {
+            int oldBand = currentBand;
+            currentBand = layeredBandWithHysteresis(currentSpeedKmh, currentBand);
+            updateTargetRate();
+            if (currentBand != oldBand) {
+                listener.onEngineBandChanged(bandName());
+                if (engineLoopStream != 0) transitionToBand(playingBand, currentBand);
+            } else if (engineLoopStream != 0) {
+                startRateSmoother();
+            }
+        } else {
+            updateTargetRate();
+            if (engineLoopStream != 0) startRateSmoother();
+        }
     }
 
     public void setEngineVolume(int percent) {
@@ -122,21 +151,14 @@ public final class BusAudioController {
         applyEngineVolume();
     }
 
-    public void setEffectsVolume(int percent) {
-        effectsVolume = boundedVolume(percent);
-    }
-
-    public void playHorn() {
-        playEffect(soundPack == null ? 0 : soundPack.hornResource());
-    }
-
+    public void setEffectsVolume(int percent) { effectsVolume = boundedVolume(percent); }
+    public void playHorn() { playEffect(soundPack == null ? 0 : soundPack.hornResource()); }
     public void playGearChange() {
         playEffect(soundPack == null ? 0 : soundPack.gearChangeResource());
     }
 
     public void refreshSpeakerStatus() {
-        if (released) return;
-        listener.onSpeakerStatusChanged(findBluetoothSpeakerStatus());
+        if (!released) listener.onSpeakerStatusChanged(findBluetoothSpeakerStatus());
     }
 
     public void release() {
@@ -144,9 +166,7 @@ public final class BusAudioController {
         stopEngine();
         released = true;
         handler.removeCallbacksAndMessages(null);
-        if (audioManager != null) {
-            audioManager.unregisterAudioDeviceCallback(audioDeviceCallback);
-        }
+        if (audioManager != null) audioManager.unregisterAudioDeviceCallback(audioDeviceCallback);
         soundPool.setOnLoadCompleteListener(null);
         soundPool.release();
     }
@@ -163,9 +183,9 @@ public final class BusAudioController {
     }
 
     private void tryStartEngine() {
+        int loopResource = currentLoopResource();
         if (released || !engineRequested || soundPack == null
-                || !isLoaded(soundPack.engineStartResource())
-                || !isLoaded(soundPack.engineLoopResource())
+                || !isLoaded(soundPack.engineStartResource()) || !isLoaded(loopResource)
                 || engineStartStream != 0 || engineLoopStream != 0) return;
 
         if (!requestAudioFocus()) {
@@ -191,24 +211,76 @@ public final class BusAudioController {
     private void startEngineLoopNow() {
         engineStartStream = 0;
         if (released || !engineRequested || soundPack == null || engineLoopStream != 0) return;
-        int soundId = soundIdsByResource.get(soundPack.engineLoopResource());
+        int soundId = soundIdsByResource.get(currentLoopResource());
         engineLoopStream = soundPool.play(soundId, effectiveEngineVolume(),
                 effectiveEngineVolume(), 10, -1, currentRate);
         if (engineLoopStream == 0) {
             stopEngine();
             listener.onEngineStateChanged(false, "Could not start the engine loop.");
         } else {
+            playingBand = currentBand;
             startRateSmoother();
+        }
+    }
+
+    private void transitionToBand(int oldBand, int newBand) {
+        finishActiveCrossfade();
+        int resource = soundPack.engineLoopResource(newBand);
+        if (!isLoaded(resource)) return;
+        int oldStream = engineLoopStream;
+        int newStream = soundPool.play(soundIdsByResource.get(resource), 0f, 0f,
+                10, -1, targetRate);
+        if (newStream == 0) return;
+
+        fadingEngineStream = oldStream;
+        engineLoopStream = newStream;
+        playingBand = newBand;
+        currentRate = targetRate;
+        if (newBand > oldBand) playEffect(soundPack.upshiftResourceForBand(newBand));
+        crossfadeStartedAtMs = SystemClock.uptimeMillis();
+        handler.post(crossfadeStep);
+    }
+
+    private void runCrossfadeStep() {
+        handler.removeCallbacks(crossfadeStep);
+        if (released || fadingEngineStream == 0 || engineLoopStream == 0) return;
+        float progress = Math.min(1f,
+                (SystemClock.uptimeMillis() - crossfadeStartedAtMs) / (float) CROSSFADE_DURATION_MS);
+        float angle = progress * (float) Math.PI / 2f;
+        float volume = effectiveEngineVolume();
+        soundPool.setVolume(fadingEngineStream, volume * (float) Math.cos(angle),
+                volume * (float) Math.cos(angle));
+        soundPool.setVolume(engineLoopStream, volume * (float) Math.sin(angle),
+                volume * (float) Math.sin(angle));
+        if (progress >= 1f) {
+            soundPool.stop(fadingEngineStream);
+            fadingEngineStream = 0;
+            startRateSmoother();
+        } else {
+            handler.postDelayed(crossfadeStep, CROSSFADE_UPDATE_MS);
+        }
+    }
+
+    private void finishActiveCrossfade() {
+        handler.removeCallbacks(crossfadeStep);
+        if (fadingEngineStream != 0) soundPool.stop(fadingEngineStream);
+        fadingEngineStream = 0;
+        if (engineLoopStream != 0) {
+            float volume = effectiveEngineVolume();
+            soundPool.setVolume(engineLoopStream, volume, volume);
         }
     }
 
     private void stopEngineStreams() {
         handler.removeCallbacks(startEngineLoop);
         handler.removeCallbacks(rateSmoother);
+        handler.removeCallbacks(crossfadeStep);
         if (engineStartStream != 0) soundPool.stop(engineStartStream);
         if (engineLoopStream != 0) soundPool.stop(engineLoopStream);
+        if (fadingEngineStream != 0) soundPool.stop(fadingEngineStream);
         engineStartStream = 0;
         engineLoopStream = 0;
+        fadingEngineStream = 0;
     }
 
     private void stopEngine() {
@@ -221,8 +293,7 @@ public final class BusAudioController {
 
     private void playEffect(int resource) {
         if (released || resource == 0 || !isLoaded(resource)) return;
-        int soundId = soundIdsByResource.get(resource);
-        soundPool.play(soundId, effectsVolume, effectsVolume, 1, 0, 1f);
+        soundPool.play(soundIdsByResource.get(resource), effectsVolume, effectsVolume, 1, 0, 1f);
     }
 
     private boolean requestAudioFocus() {
@@ -234,9 +305,7 @@ public final class BusAudioController {
     }
 
     private void abandonAudioFocus() {
-        if (focusOwned && audioManager != null) {
-            audioManager.abandonAudioFocusRequest(focusRequest);
-        }
+        if (focusOwned && audioManager != null) audioManager.abandonAudioFocusRequest(focusRequest);
         focusOwned = false;
         ducked = false;
     }
@@ -262,6 +331,50 @@ public final class BusAudioController {
         }
     }
 
+    private void updateTargetRate() {
+        if (soundPack != null && soundPack.isLayered()) {
+            targetRate = layeredRate(currentSpeedKmh, currentBand);
+        } else {
+            targetRate = PROTOTYPE_MIN_RATE
+                    + (PROTOTYPE_MAX_RATE - PROTOTYPE_MIN_RATE) * currentSpeedKmh / 80f;
+        }
+    }
+
+    private int initialBandForSpeed(int speed) {
+        if (speed >= 60) return 5;
+        if (speed >= 45) return 4;
+        if (speed >= 30) return 3;
+        if (speed >= 18) return 2;
+        if (speed >= 2) return 1;
+        return 0;
+    }
+
+    private int layeredBandWithHysteresis(int speed, int band) {
+        int[] upshiftAt = {2, 18, 30, 45, 60};
+        int[] downshiftBelow = {0, 2, 14, 26, 40, 55};
+        while (band < 5 && speed >= upshiftAt[band]) band++;
+        while (band > 0 && speed < downshiftBelow[band]) band--;
+        return band;
+    }
+
+    private float layeredRate(int speed, int band) {
+        int[] low = {0, 2, 18, 30, 45, 60};
+        int[] high = {2, 18, 30, 45, 60, 80};
+        float position = (speed - low[band]) / (float) Math.max(1, high[band] - low[band]);
+        position = Math.max(0f, Math.min(1f, position));
+        return GTT_MIN_RATE + (GTT_MAX_RATE - GTT_MIN_RATE) * position;
+    }
+
+    private int currentLoopResource() {
+        return soundPack.isLayered()
+                ? soundPack.engineLoopResource(currentBand) : soundPack.engineLoopResource();
+    }
+
+    private String bandName() {
+        if (soundPack == null || !soundPack.isLayered()) return "ENGINE LOOP";
+        return currentBand == 0 ? "IDLE" : "GEAR " + currentBand;
+    }
+
     private void startRateSmoother() {
         handler.removeCallbacks(rateSmoother);
         handler.post(rateSmoother);
@@ -272,11 +385,8 @@ public final class BusAudioController {
         public void run() {
             if (released || engineLoopStream == 0) return;
             float difference = targetRate - currentRate;
-            if (Math.abs(difference) < 0.005f) {
-                currentRate = targetRate;
-            } else {
-                currentRate += difference * 0.20f;
-            }
+            if (Math.abs(difference) < 0.005f) currentRate = targetRate;
+            else currentRate += difference * 0.20f;
             currentRate = Math.max(0.5f, Math.min(2.0f, currentRate));
             soundPool.setRate(engineLoopStream, currentRate);
             if (currentRate != targetRate) handler.postDelayed(this, RATE_UPDATE_MS);
@@ -284,15 +394,16 @@ public final class BusAudioController {
     };
 
     private void applyEngineVolume() {
+        if (fadingEngineStream != 0) {
+            runCrossfadeStep();
+            return;
+        }
         float volume = effectiveEngineVolume();
         if (engineStartStream != 0) soundPool.setVolume(engineStartStream, volume, volume);
         if (engineLoopStream != 0) soundPool.setVolume(engineLoopStream, volume, volume);
     }
 
-    private float effectiveEngineVolume() {
-        return engineVolume * (ducked ? 0.25f : 1f);
-    }
-
+    private float effectiveEngineVolume() { return engineVolume * (ducked ? 0.25f : 1f); }
     private float boundedVolume(int percent) {
         return Math.max(0, Math.min(100, percent)) / 100f;
     }
@@ -317,13 +428,8 @@ public final class BusAudioController {
 
     private final AudioDeviceCallback audioDeviceCallback = new AudioDeviceCallback() {
         @Override
-        public void onAudioDevicesAdded(AudioDeviceInfo[] addedDevices) {
-            refreshSpeakerStatus();
-        }
-
+        public void onAudioDevicesAdded(AudioDeviceInfo[] addedDevices) { refreshSpeakerStatus(); }
         @Override
-        public void onAudioDevicesRemoved(AudioDeviceInfo[] removedDevices) {
-            refreshSpeakerStatus();
-        }
+        public void onAudioDevicesRemoved(AudioDeviceInfo[] removedDevices) { refreshSpeakerStatus(); }
     };
 }

@@ -3,7 +3,7 @@
 Android prototype for the Motorola Moto G54 and compatible Android phones,
 controlling an 11×44 Funduino / LeSun B1144-style Bluetooth LED badge.
 
-## Prototype 0.2
+## Prototype 0.3
 
 - Fixed vehicle number: **4513**
 - 44×11 exact bitmap output
@@ -15,6 +15,8 @@ controlling an 11×44 Funduino / LeSun B1144-style Bluetooth LED badge.
 - Independent Bluetooth media audio for a paired speaker
 - Synthetic Prototype Diesel Test engine, gear-change, and horn sounds
 - Manual 0–80 km/h development speed simulator
+- GTT Classic Bus layered idle and five-gear sound pack
+- 250 ms crossfaded manual gear transitions with shift effects
 - Destination presets:
   - Traversella
   - Fondo
@@ -41,9 +43,14 @@ Pair and select the bus speaker through Android's normal Bluetooth settings.
 The app detects Bluetooth media outputs but does not force pairing or an A2DP
 connection.
 
-`Prototype Diesel Test` contains original synthetic placeholder sounds that
-exercise the media-audio pipeline. The speed slider is a manual development
-simulator; GPS-driven speed and automatic gearbox behavior are planned for
+`GTT Classic Bus` is the default sound pack. It maps the manual speed control
+to idle and five looped gear recordings, with modest within-gear pitch changes
+and crossfaded transitions. Upshifts mix a short shift recording underneath;
+downshifts crossfade without automatically playing the long downshift effect.
+
+`Prototype Diesel Test` remains available as a synthetic fallback and retains
+its original single-loop behavior. The speed slider is a manual development
+simulator; GPS-driven speed and a fully automatic gearbox are planned for
 future audio patches.
 
 ## Build
