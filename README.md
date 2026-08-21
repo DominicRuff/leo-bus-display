@@ -1,7 +1,10 @@
+
 # Leo Bus Display
 
 Android prototype for the Motorola Moto G54 and compatible Android phones,
 controlling an 11×44 Funduino / LeSun B1144-style Bluetooth LED badge.
+
+last build 21st August 2026
 
 ## Prototype 0.6
 
